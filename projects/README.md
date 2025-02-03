@@ -1,0 +1,1 @@
+This folder stores the target projects for fuzzing.

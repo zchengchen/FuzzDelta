@@ -1,0 +1,7 @@
+*.tmp
+*.test
+*.log
+test.*
+tmp.*
+load_pyenv.sh
+.env
