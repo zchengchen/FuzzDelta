@@ -8,4 +8,4 @@ load_pyenv.sh
 test
 .venv
 __pycache__/
-./fuzzdelta-*
+fuzzdelta-*/
