@@ -5,3 +5,7 @@ test.*
 tmp.*
 load_pyenv.sh
 .env
+test
+.venv
+__pycache__/
+./fuzzdelta-*

@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
-from prompts.prompt_generator import *
 
 class GPT4oChain:
     def __init__(self, model_name="chatgpt-4o-latest"):
