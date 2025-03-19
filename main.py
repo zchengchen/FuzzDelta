@@ -11,8 +11,8 @@ gpto1 = GPTo1Chain()
 prompt_gen = PromptGenerator()
 
 vuln_list = {
-    "cpv1": "d030af5eb4c64470c8fd5a87a8f6aae547580aa3",
-    # "cpv2": "0dbd46415432759475e6e4bb5adfaada6fb7d506",
+    # "cpv1": "d030af5eb4c64470c8fd5a87a8f6aae547580aa3",
+    "cpv2": "0dbd46415432759475e6e4bb5adfaada6fb7d506",
     # "cpv3": "c502a1695c0e9d0345101a5f2a99ee0e3c890a4d",
     # "cpv4": "b9d6a2caf41565fb05c010ad0c8d2fd6bd3c4c42",
     # "cpv5": "b101d59b3dda654dee1deabc34816e2ca7c96d38",
@@ -61,7 +61,7 @@ for cpv_name, commit_hash in vuln_list.items():
         chat_history = update_chat_history("Human", request_modified_driver_prompt, chat_history)
         chat_history = update_chat_history("LLM", response, chat_history)
         new_fuzz_func = extract_fuzzer_function(response)
-        replace_fuzzer_function(os.path.join(fuzz_drivers_path, selected_driver), new_fuzz_func)
+        # replace_fuzzer_function(os.path.join(fuzz_drivers_path, selected_driver), new_fuzz_func)
         save_chat_log_to_file(chat_history, f"{cpv_name}_chat_log.txt")
     else:
         print(f"[*] No vulnerability detected in {cpv_name}.")

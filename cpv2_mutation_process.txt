@@ -1,0 +1,925 @@
+DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cujo6Ojo6Ojo6Ojo6Og=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cujo6Ojo6Ojo6Ojo6Og=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cujo6Ojo6Ojo6Ojo6A==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cujo6OgAAAAAAAAADQ==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cujo6OgAAABAAAAADQ==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic gCMEIwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic IwSAIwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic IwQA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic jwQA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic jwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAAA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAABA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic APYABA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQ=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQ=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMEE3M=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMEEnM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMEEnM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMEEgQAcw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATXRMTBBIEAHM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic QCMEIwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic QCMABCMA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic QCNgAAQjAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic QCNgBAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic QIODg4ODg4ODI2AEAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Iw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Iw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic WyM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAQ=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic A/oKOw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic A/oKOw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic A/q5ubm5uQo7
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic A/q5ubm5uQo7
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ubkDCrm5ufo7
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAD/////AA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAD/////AHs=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAD/////AHsq
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAAAAD/////AHsq
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CiM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CjM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cgoz
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cgoz
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgodMw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AIATEwAAAAAAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AIATEwsAAAAAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAPfAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAADAADfAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAEAAAADAADfAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAAAAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAAAAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAAAAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAAAAAAAAAAA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AACcAAAAAAAAAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQEBAAy
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAEBAAy
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAEAAYy
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BADTAAYy
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BADTAAYyn5+fn5+f
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BCMA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic /////wQjAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ///v/wQjAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ///v/wQAAAAAIwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ///v/wQAAAAAACMAIwA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic TU1NTU1NTU1NTQQACjs=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic TU1NTU1NTQQACjs=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic TU1NTU1NTQQABAAKOw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic TQQACk1NTQQABAAKOw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic TQQACk1NTQQABAoAOw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic nQo=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic nAo=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic VVVVVVVVVVVVCg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic VVVVVQo=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cgo=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgoK
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgrP
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cgr/////////////zw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgoK////////////zw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMTBnM=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATExMTABMTExMGcw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATEwATExMTExMGcw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATEwATExMGcw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAATEwAXFxcTExMGcw==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAEAAo7fg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAgEAAo7fg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAgEAAo7fg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAgEAAo7BAB+
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAgEAAo7BAAw
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATLAAAAAAAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQALAAAAAAAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQALAAAAAAAAAAEAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AKcALAAAAAAAAAAEAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AKcALAAAAAAAAAAEAIY=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cv////8=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ////Cv8=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic //8EAP8=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic //8EAP/m5ubm5ubm5uY=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic //8EAFvm5ubm5ubm5uY=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic Cv8=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgAAAAD/
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CgAAAAD/
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CuLi4uIAAAAA/w==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic CuLi4uIAMgAA/w==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATEwAAAARjAAAABAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATEwAAAPyTAAAABAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATEwAABACTAAAABAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATEwAABACTAAQABAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAATEwAEAAAEBJMAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic DiMO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AwAO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AwAOAAAAAA==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic A0AADgAAAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQE////////YwAy
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQE////Cv///2MAMg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AP//CgT/BP///2MAMg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAD/CgT/BP///2MAMg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAD/CgT/BP//Y/8AMg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQEADI=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQEADIA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic AAQEADoA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic APgEADoA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic APgEADoAABMTAAA=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAK
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAE
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic BAAELg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ////BAAELg==
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic ////BAAELgQA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic DiMO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic 8uUO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic 8vIO
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic 8g4=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic 8gw=
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic oQAAExMAAAAAAAAA
+
+
+[DEBUG] Generated HTTP Request:
+GET / HTTP/1.1
+Host: localhost
+Authorization: Basic oQAAEwAAAAAAEwAAAAAAAAA=
+
+
+=================================================================
+==51==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x50300007d9f1 at pc 0x55cbe355150e bp 0x7ffca4b026f0 sp 0x7ffca4b026e8
+WRITE of size 1 at 0x50300007d9f1 thread T0
+    #0 0x55cbe355150d in ngx_http_auth_basic_user /src/harnesses/bld/src/http/ngx_http_core_module.c:1999:25
+    #1 0x55cbe358fae1 in ngx_http_variable_remote_user /src/harnesses/bld/src/http/ngx_http_variables.c:1760:10
+    #2 0x55cbe358a62c in ngx_http_get_indexed_variable /src/harnesses/bld/src/http/ngx_http_variables.c:647:9
+    #3 0x55cbe357ffde in ngx_http_log_variable_getlen /src/harnesses/bld/src/http/modules/ngx_http_log_module.c:956:13
+    #4 0x55cbe357ec0a in ngx_http_log_handler /src/harnesses/bld/src/http/modules/ngx_http_log_module.c:305:24
+    #5 0x55cbe35697bc in ngx_http_log_request /src/harnesses/bld/src/http/ngx_http_request.c:3768:9
+    #6 0x55cbe35697bc in ngx_http_free_request /src/harnesses/bld/src/http/ngx_http_request.c:3714:9
+    #7 0x55cbe35736f6 in ngx_http_set_keepalive /src/harnesses/bld/src/http/ngx_http_request.c:3136:5
+    #8 0x55cbe354f330 in ngx_http_core_content_phase /src/harnesses/bld/src/http/ngx_http_core_module.c
+    #9 0x55cbe354c759 in ngx_http_core_run_phases /src/harnesses/bld/src/http/ngx_http_core_module.c:875:14
+    #10 0x55cbe354c759 in ngx_http_handler /src/harnesses/bld/src/http/ngx_http_core_module.c:858:5
+    #11 0x55cbe356d49e in ngx_http_process_request /src/harnesses/bld/src/http/ngx_http_request.c:2133:5
+    #12 0x55cbe357190b in ngx_http_process_request_headers /src/harnesses/bld/src/http/ngx_http_request.c:1529:13
+    #13 0x55cbe35071cc in ngx_event_process_posted /src/harnesses/bld/src/event/ngx_event_posted.c:34:9
+    #14 0x55cbe34a1f37 in LLVMFuzzerTestOneInput /src/harnesses/bld/src/harnesses/pov_harness.cc:381:9
+    #15 0x55cbe3353780 in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:614:13
+    #16 0x55cbe3352fa5 in fuzzer::Fuzzer::RunOne(unsigned char const*, unsigned long, bool, fuzzer::InputInfo*, bool, bool*) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:516:7
+    #17 0x55cbe3354775 in fuzzer::Fuzzer::MutateAndTestOne() /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:760:19
+    #18 0x55cbe3355565 in fuzzer::Fuzzer::Loop(std::__Fuzzer::vector<fuzzer::SizedFile, std::__Fuzzer::allocator<fuzzer::SizedFile>>&) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:905:5
+    #19 0x55cbe3343876 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long)) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerDriver.cpp:914:6
+    #20 0x55cbe336fda2 in main /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerMain.cpp:20:10
+    #21 0x7fdc62fe7082 in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x24082) (BuildId: 0702430aef5fa3dda43986563e9ffcc47efbd75e)
+    #22 0x55cbe33349ed in _start (/work/pov_harness+0xb59ed)
+
+0x50300007d9f1 is located 0 bytes after 17-byte region [0x50300007d9e0,0x50300007d9f1)
+allocated by thread T0 here:
+    #0 0x55cbe3461d1e in malloc /src/llvm-project/compiler-rt/lib/asan/asan_malloc_linux.cpp:69:3
+    #1 0x55cbe3512be4 in ngx_alloc /src/harnesses/bld/src/os/unix/ngx_alloc.c:22:9
+    #2 0x55cbe34a9ddb in ngx_palloc_large /src/harnesses/bld/src/core/ngx_palloc.c:220:9
+    #3 0x55cbe35512e2 in ngx_http_auth_basic_user /src/harnesses/bld/src/http/ngx_http_core_module.c:1989:17
+    #4 0x55cbe358fae1 in ngx_http_variable_remote_user /src/harnesses/bld/src/http/ngx_http_variables.c:1760:10
+    #5 0x55cbe358a62c in ngx_http_get_indexed_variable /src/harnesses/bld/src/http/ngx_http_variables.c:647:9
+    #6 0x55cbe357ffde in ngx_http_log_variable_getlen /src/harnesses/bld/src/http/modules/ngx_http_log_module.c:956:13
+    #7 0x55cbe357ec0a in ngx_http_log_handler /src/harnesses/bld/src/http/modules/ngx_http_log_module.c:305:24
+    #8 0x55cbe35697bc in ngx_http_log_request /src/harnesses/bld/src/http/ngx_http_request.c:3768:9
+    #9 0x55cbe35697bc in ngx_http_free_request /src/harnesses/bld/src/http/ngx_http_request.c:3714:9
+    #10 0x55cbe35736f6 in ngx_http_set_keepalive /src/harnesses/bld/src/http/ngx_http_request.c:3136:5
+    #11 0x55cbe354f330 in ngx_http_core_content_phase /src/harnesses/bld/src/http/ngx_http_core_module.c
+    #12 0x55cbe354c759 in ngx_http_core_run_phases /src/harnesses/bld/src/http/ngx_http_core_module.c:875:14
+    #13 0x55cbe354c759 in ngx_http_handler /src/harnesses/bld/src/http/ngx_http_core_module.c:858:5
+    #14 0x55cbe356d49e in ngx_http_process_request /src/harnesses/bld/src/http/ngx_http_request.c:2133:5
+    #15 0x55cbe357190b in ngx_http_process_request_headers /src/harnesses/bld/src/http/ngx_http_request.c:1529:13
+    #16 0x55cbe35071cc in ngx_event_process_posted /src/harnesses/bld/src/event/ngx_event_posted.c:34:9
+    #17 0x55cbe34a1f37 in LLVMFuzzerTestOneInput /src/harnesses/bld/src/harnesses/pov_harness.cc:381:9
+    #18 0x55cbe3353780 in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:614:13
+    #19 0x55cbe3352fa5 in fuzzer::Fuzzer::RunOne(unsigned char const*, unsigned long, bool, fuzzer::InputInfo*, bool, bool*) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:516:7
+    #20 0x55cbe3354775 in fuzzer::Fuzzer::MutateAndTestOne() /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:760:19
+    #21 0x55cbe3355565 in fuzzer::Fuzzer::Loop(std::__Fuzzer::vector<fuzzer::SizedFile, std::__Fuzzer::allocator<fuzzer::SizedFile>>&) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerLoop.cpp:905:5
+    #22 0x55cbe3343876 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long)) /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerDriver.cpp:914:6
+    #23 0x55cbe336fda2 in main /src/llvm-project/compiler-rt/lib/fuzzer/FuzzerMain.cpp:20:10
+    #24 0x7fdc62fe7082 in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x24082) (BuildId: 0702430aef5fa3dda43986563e9ffcc47efbd75e)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow /src/harnesses/bld/src/http/ngx_http_core_module.c:1999:25 in ngx_http_auth_basic_user
+Shadow bytes around the buggy address:
+  0x50300007d700: fa fa fd fd fd fa fa fa fd fd fd fa fa fa fd fd
+  0x50300007d780: fd fa fa fa fd fd fd fa fa fa fd fd fd fa fa fa
+  0x50300007d800: fd fd fd fa fa fa fd fd fd fa fa fa fd fd fd fa
+  0x50300007d880: fa fa fd fd fd fa fa fa fd fd fd fa fa fa 00 00
+  0x50300007d900: 01 fa fa fa fd fd fd fd fa fa 00 00 00 fa fa fa
+=>0x50300007d980: 00 00 00 fa fa fa 00 00 05 fa fa fa 00 00[01]fa
+  0x50300007da00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x50300007da80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x50300007db00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x50300007db80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x50300007dc00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==51==ABORTING
+MS: 2 InsertByte-InsertRepeatedBytes-; base unit: 9fea806b64a276754f4c7b3e88d5f1aac8eeba54
+0xa1,0x0,0x0,0x13,0x0,0x0,0x0,0x0,0x0,0x13,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
+\241\000\000\023\000\000\000\000\000\023\000\000\000\000\000\000\000
+artifact_prefix='./'; Test unit written to ./crash-193a810636cfdf4e348cad72e10c6840a260923f
+Base64: oQAAEwAAAAAAEwAAAAAAAAA=
+
+
+root@0d74d91a1a2d:/work# grep -oi "get" cpv2_mutation_process | wc -l
+1424
