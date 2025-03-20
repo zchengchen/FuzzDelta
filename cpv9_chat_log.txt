@@ -1,0 +1,1622 @@
+Human: 
+            You are an expect to help detecting vulnerabilities introduced by commits. The commit information is shown as follows:
+            Diff:
+@@ -1153,6 +1153,9 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
+     rev->data = c;
+     wev->data = c;
+ 
++    rev->cycle = (ngx_cycle_t*)ngx_cycle;
++    wev->cycle = (ngx_cycle_t*)ngx_cycle;
++
+     wev->write = 1;
+ 
+     return c;
+Diff:
+@@ -15,6 +15,7 @@
+ typedef struct ngx_module_s          ngx_module_t;
+ typedef struct ngx_conf_s            ngx_conf_t;
+ typedef struct ngx_cycle_s           ngx_cycle_t;
++typedef struct ngx_black_list_s      ngx_black_list_t;
+ typedef struct ngx_pool_s            ngx_pool_t;
+ typedef struct ngx_chain_s           ngx_chain_t;
+ typedef struct ngx_log_s             ngx_log_t;
+Diff:
+@@ -1009,6 +1009,7 @@ ngx_int_t
+ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+ {
+     size_t      len;
++    ngx_int_t   rc;
+     ngx_uint_t  create;
+     ngx_file_t  file;
+     u_char      pid[NGX_INT64_LEN + 2];
+@@ -1033,11 +1034,13 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+         return NGX_ERROR;
+     }
+ 
++    rc = NGX_OK;
++
+     if (!ngx_test_config) {
+         len = ngx_snprintf(pid, NGX_INT64_LEN + 2, "%P%N", ngx_pid) - pid;
+ 
+         if (ngx_write_file(&file, pid, len, 0) == NGX_ERROR) {
+-            return NGX_ERROR;
++            rc = NGX_ERROR;
+         }
+     }
+ 
+@@ -1046,7 +1049,7 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+                       ngx_close_file_n " \"%s\" failed", file.name.data);
+     }
+ 
+-    return NGX_OK;
++    return rc;
+ }
+ 
+ 
+@@ -1456,3 +1459,84 @@ ngx_shutdown_timer_handler(ngx_event_t *ev)
+         c[i].read->handler(c[i].read);
+     }
+ }
++
++
++void
++ngx_black_list_insert(ngx_black_list_t **black_list, u_char insert_ip[],
++    size_t size, ngx_log_t *log)
++{
++    ngx_black_list_t *reader;
++    ngx_black_list_t *new_black_list;
++
++    u_char* new_str = (u_char*)ngx_alloc(size, log);
++
++    for (size_t i = 0; i < size; i++) {
++        new_str[i] = insert_ip[i];
++    }
++
++    new_black_list = (ngx_black_list_t*)ngx_alloc(sizeof(ngx_black_list_t), log);
++    new_black_list->IP = (ngx_str_t*)ngx_alloc(sizeof(ngx_str_t), log);;
++    new_black_list->IP->data = new_str;
++    new_black_list->IP->len = size;
++    new_black_list->next = NULL;
++
++    reader = *black_list;
++
++    if (!reader) {
++        *black_list = new_black_list;
++        return;
++    }
++
++    for (reader = reader; reader && reader->next; reader = reader->next) {
++
++         if (!ngx_strcmp(insert_ip, reader->IP->data)) {
++            ngx_destroy_black_list_link(new_black_list);
++            return;
++         }
++    }
++
++    reader->next = new_black_list;
++    new_black_list->prev = reader;
++
++    return;
++}
++
++
++ngx_int_t
++ngx_black_list_remove(ngx_black_list_t **black_list, u_char remove_ip[])
++{
++    ngx_black_list_t *reader;
++
++    reader = *black_list;
++
++    if (reader && !ngx_strcmp(remove_ip, reader->IP->data)) {
++        ngx_destroy_black_list_link(reader);
++        return NGX_OK;
++    }
++
++    for (reader = reader->next; reader && reader->next; reader = reader->next) {
++        if (!ngx_strcmp(remove_ip, reader->IP->data)) {
++            ngx_double_link_remove(reader);
++            ngx_destroy_black_list_link(reader);
++            return NGX_OK;
++        }
++    }
++
++    return NGX_ERROR;
++}
++
++
++ngx_int_t
++ngx_is_ip_banned(ngx_cycle_t *cycle, ngx_connection_t *connection)
++{
++    ngx_black_list_t *reader = (cycle) ? cycle->black_list : NULL;
++
++    for (reader = reader; reader; reader = reader->next) {
++            if (!ngx_strcmp(connection->addr_text.data, reader->IP->data)) {
++                ngx_close_connection(connection);
++                return NGX_ERROR;
++            }
++    }
++
++    return NGX_OK;
++}
+Diff:
+@@ -36,6 +36,13 @@ struct ngx_shm_zone_s {
+ };
+ 
+ 
++typedef struct ngx_black_list_s {
++    ngx_str_t         *IP;
++    ngx_black_list_t  *next;
++    ngx_black_list_t  *prev;
++}ngx_black_list_t;
++
++
+ struct ngx_cycle_s {
+     void                  ****conf_ctx;
+     ngx_pool_t               *pool;
+@@ -81,6 +88,7 @@ struct ngx_cycle_s {
+     ngx_str_t                 prefix;
+     ngx_str_t                 lock_file;
+     ngx_str_t                 hostname;
++    ngx_black_list_t         *black_list;
+ };
+ 
+ 
+@@ -123,7 +131,24 @@ typedef struct {
+ 
+ 
+ #define ngx_is_init_cycle(cycle)  (cycle->conf_ctx == NULL)
+-
++#define ngx_double_link_insert(x, y)            \
++    (x)->next = (y);                            \
++    (y)->prev = (x);
++
++#define ngx_double_link_remove(x)               \
++    if ((x)->prev) (x)->prev->next = (x)->next; \
++    if ((x)->next) (x)->next->prev = (x)->prev;
++
++#define ngx_destroy_black_list_link(x)          \
++    ngx_memzero((x)->IP->data, (x)->IP->len);   \
++    ngx_free((x)->IP->data);                    \
++    (x)->IP->data = NULL;                       \
++    ngx_memzero((x)->IP, sizeof(ngx_str_t));    \
++    ngx_free((x)->IP);                          \
++    (x)->IP = NULL;                             \
++    ngx_memzero((x), sizeof(ngx_black_list_t)); \
++    ngx_free((x));                              \
++    (x) = NULL;
+ 
+ ngx_cycle_t *ngx_init_cycle(ngx_cycle_t *old_cycle);
+ ngx_int_t ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log);
+@@ -136,6 +161,10 @@ ngx_cpuset_t *ngx_get_cpu_affinity(ngx_uint_t n);
+ ngx_shm_zone_t *ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name,
+     size_t size, void *tag);
+ void ngx_set_shutdown_timer(ngx_cycle_t *cycle);
++void ngx_black_list_insert(ngx_black_list_t **black_list,
++    u_char insert_ip[], size_t size, ngx_log_t *log);
++ngx_int_t ngx_black_list_remove(ngx_black_list_t **black_list, u_char remove_ip[]);
++ngx_int_t ngx_is_ip_banned(ngx_cycle_t *cycle, ngx_connection_t *connection);
+ 
+ 
+ extern volatile ngx_cycle_t  *ngx_cycle;
+Diff:
+@@ -101,6 +101,7 @@ struct ngx_event_s {
+     int              available;
+ 
+     ngx_event_handler_pt  handler;
++    ngx_cycle_t          *cycle;
+ 
+ 
+ #if (NGX_HAVE_IOCP)
+Diff:
+@@ -20,6 +20,10 @@ static ngx_int_t ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
+ 
+ static ngx_int_t ngx_http_process_header_line(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_black_list(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_white_list(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_unique_header_line(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_multi_header_lines(ngx_http_request_t *r,
+@@ -199,6 +203,12 @@ ngx_http_header_t  ngx_http_headers_in[] = {
+     { ngx_string("Cookie"), offsetof(ngx_http_headers_in_t, cookies),
+                  ngx_http_process_multi_header_lines },
+ 
++    { ngx_string("Black-List"), offsetof(ngx_http_headers_in_t, black_list),
++                 ngx_http_process_black_list },
++
++    { ngx_string("White-List"), offsetof(ngx_http_headers_in_t, white_list),
++                 ngx_http_process_white_list },
++
+     { ngx_null_string, 0, NULL }
+ };
+ 
+@@ -392,6 +402,10 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
+         return;
+     }
+ 
++    if (ngx_is_ip_banned(rev->cycle, c)) {
++        c->close = 1;
++    }
++
+     if (c->close) {
+         ngx_http_close_connection(c);
+         return;
+@@ -1045,6 +1059,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
+ 
+     c = rev->data;
+     r = c->data;
++    r->cycle = rev->cycle;
+ 
+     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+                    "http process request line");
+@@ -1330,6 +1345,7 @@ ngx_http_process_request_headers(ngx_event_t *rev)
+ 
+     c = rev->data;
+     r = c->data;
++    r->cycle = rev->cycle;
+ 
+     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+                    "http process request header line");
+@@ -3818,3 +3834,97 @@ ngx_http_log_error_handler(ngx_http_request_t *r, ngx_http_request_t *sr,
+ 
+     return buf;
+ }
++
++
++static ngx_int_t
++ngx_http_process_white_list(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    enum State {start,
++                ip};
++    enum State state = start;
++    u_char IP_buffer[NGX_IP_LEN + 1] = {0};
++    ngx_int_t buffer_index = 0;
++    u_char* reader = h->value.data;
++    ngx_int_t result = NGX_ERROR;
++
++    // Remove each IP given
++    while (*reader != '\0') {
++        switch (state) {
++
++        case start:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++                state = ip;
++            }
++            break;
++
++        case ip:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++            } else if (*reader == ';' ||
++                     *reader == '\0' ||
++                     *reader == '\n') {
++                IP_buffer[buffer_index] = '\0';
++                buffer_index = 0;
++                state = start;
++                result = ngx_black_list_remove(&(r->cycle)->black_list, IP_buffer);
++                if (result == NGX_ERROR) goto ngx_black_list_remove_fail;
++            } else {
++                return NGX_ERROR;
++            }
++            break;
++
++        }
++        reader++;
++    }
++
++    return NGX_OK;
++
++ngx_black_list_remove_fail:
++    return NGX_ERROR;
++}
++
++
++static ngx_int_t
++ngx_http_process_black_list(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    enum State {start,
++                ip};
++    enum State state = start;
++    u_char IP_buffer[NGX_IP_LEN + 1] = {0};
++    ngx_int_t buffer_index = 0;
++    u_char* reader = h->value.data;
++
++    while (*reader != '\0') {
++        switch (state) {
++
++        case start:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++                state = ip;
++            }
++            break;
++
++        case ip:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++            } else if (*reader == ';' ||
++                     *reader == '\0' ||
++                     *reader == '\n') {
++                IP_buffer[buffer_index] = '\0';
++                buffer_index = 0;
++                state = start;
++                ngx_black_list_insert(&(r->cycle)->black_list, IP_buffer, NGX_IP_LEN, r->cycle->log);
++            } else {
++                return NGX_ERROR;
++            }
++            break;
++
++        }
++        reader++;
++    }
++
++    return NGX_OK;
++}
+Diff:
+@@ -148,7 +148,8 @@
+ #define NGX_HTTP_SSI_BUFFERED              0x01
+ #define NGX_HTTP_SUB_BUFFERED              0x02
+ #define NGX_HTTP_COPY_BUFFERED             0x04
+-
++#define NGX_IP_LEN (sizeof("000.000.000.000"))
++#define ngx_is_valid_ip_char(x) (('0' <= (x) && (x) <= '9') || (x) == '.')
+ 
+ typedef enum {
+     NGX_HTTP_INITING_REQUEST_STATE = 0,
+@@ -239,6 +240,9 @@ typedef struct {
+     off_t                             content_length_n;
+     time_t                            keep_alive_n;
+ 
++    ngx_str_t                         black_list;
++    ngx_str_t                         white_list;
++
+     unsigned                          connection_type:2;
+     unsigned                          chunked:1;
+     unsigned                          msie:1;
+@@ -421,6 +425,8 @@ struct ngx_http_request_s {
+     ngx_http_post_subrequest_t       *post_subrequest;
+     ngx_http_posted_request_t        *posted_requests;
+ 
++    ngx_cycle_t                      *cycle;
++
+     ngx_int_t                         phase_handler;
+     ngx_http_handler_pt               content_handler;
+     ngx_uint_t                        access_code;
+
+            Does this commit introduce any new vulnerability? If this commit has new vulnerability, please tell me 'YES' in the first line and analyze the cause in the followings. Otherwise, please return 'NO'.
+            Your cause should contain the following information:
+            (1) Why this commit is vulnerable?
+            (2) Under what conditions does the input trigger this vulnerability? The more detailed, the better.
+        
+LLM: 
+YES
+
+**(1) Why this commit is vulnerable?**
+
+This commit introduces a buffer overflow vulnerability in the functions `ngx_http_process_black_list` and `ngx_http_process_white_list`. Specifically, the issue arises from the way IP addresses are parsed from the `Black-List` and `White-List` HTTP headers without proper bounds checking on the buffer used to store the IP address.
+
+Here's the detailed explanation:
+
+- The functions declare a buffer `IP_buffer` of fixed size `NGX_IP_LEN + 1`, which is intended to store IP addresses up to a maximum length of `NGX_IP_LEN` characters. `NGX_IP_LEN` is defined as `sizeof("000.000.000.000")`, which evaluates to 16 (the length of a standard IPv4 address string).
+
+  ```c
+  #define NGX_IP_LEN (sizeof("000.000.000.000"))
+  u_char IP_buffer[NGX_IP_LEN + 1] = {0};
+  ```
+
+- As the functions parse the IP addresses from the header values, they increment a `buffer_index` each time a valid character is read and store the character in `IP_buffer`:
+
+  ```c
+  if (ngx_is_valid_ip_char(*reader)) {
+      IP_buffer[buffer_index++] = *reader;
+  }
+  ```
+
+- **The vulnerability occurs because there is no check to ensure that `buffer_index` does not exceed the length of `IP_buffer`.** If an attacker provides an IP address longer than `NGX_IP_LEN` characters, `buffer_index` will exceed the bounds of `IP_buffer`, resulting in a buffer overflow.
+
+- Moreover, the macro `ngx_is_valid_ip_char` only checks if the character is a digit or a dot:
+
+  ```c
+  #define ngx_is_valid_ip_char(x) (('0' <= (x) && (x) <= '9') || (x) == '.')
+  ```
+
+  This means that any sequence of digits and dots, regardless of length, will be considered valid characters to be stored in `IP_buffer`.
+
+- This unchecked buffer overflow can lead to memory corruption, which attackers might exploit to execute arbitrary code or crash the server, resulting in a denial of service.
+
+**(2) Under what conditions does the input trigger this vulnerability?**
+
+The vulnerability is triggered when an attacker sends an HTTP request containing a `Black-List` or `White-List` header with an IP address value longer than `NGX_IP_LEN` (16) characters. For example:
+
+```http
+GET / HTTP/1.1
+Host: vulnerable-server.com
+Black-List: 123.456.789.0123456789.0123456789.0123456789.0123456789
+```
+
+In this example:
+
+- The `Black-List` header contains an IP address string much longer than the expected maximum length.
+- As the server processes this header, it reads each character (digits and dots) and stores them in `IP_buffer` without checking if the buffer size is exceeded.
+- This causes `buffer_index` to increment beyond the bounds of `IP_buffer`, leading to buffer overflow.
+
+**Detailed Conditions to Trigger the Vulnerability:**
+
+1. **Header Manipulation:**
+
+   - The attacker must send a specially crafted HTTP request to the server with either the `Black-List` or `White-List` header.
+   - The header value should contain an IP address string exceeding 16 characters. This can be achieved by repeating digits and dots or appending excessive data.
+
+2. **Continuous Valid Characters:**
+
+   - The input must consist of characters that are considered valid by the `ngx_is_valid_ip_char` macro. This includes digits (`'0'` to `'9'`) and the dot (`'.'`) character.
+   - Since the parsing loop continues as long as valid characters are read, providing a long sequence of digits and dots will cause the buffer overflow.
+
+3. **Lack of Delimiters:**
+
+   - The attacker should avoid inserting delimiter characters (`';'`, `'\n'`, or `'\0'`) that would cause the function to reset the `buffer_index` or stop reading further characters.
+   - This ensures that the overflow occurs as `buffer_index` continues to increment beyond the buffer size.
+
+By exploiting this vulnerability, an attacker can cause memory corruption on the server, which may result in arbitrary code execution or a crash of the server process, leading to a denial of service.
+Human: 
+            You need to choose the one you need from the following harness and I will give you the file name and function description. Then tell me the filename you need. Just tell me the filename, no additional explanation or output is needed.
+                1. pov_harness.cc
+        vulnerabilities are primarily related to the request processing chain. Throughout the HTTP request's lifecycle from reception to response, issues may arise in request method parsing, URI normalization, header key-value parsing, route rule matching, and proxy configuration forwarding. Buffer overflows, memory leaks, or logical vulnerabilities are particularly likely when handling headers of abnormal length, malformed URIs, special cookie values, complex location configurations, or multi-layer proxy forwarding.
+    2. mail_request_harness.cc
+        vulnerabilities are mainly associated with state transitions and authentication flows. The authentication process involves interaction with the auth server (auth_http handling), authentication state validation (auth_done state), and result processing. As a stateful protocol, POP3 must strictly transition between AUTHORIZATION, TRANSACTION, and UPDATE states, each with its specific command set. Improper state transition handling or authentication flow flaws can lead to unauthorized access or state confusion.
+    3. smtp_harness.cc
+        vulnerabilities primarily relate to command processing and session management. The SMTP server must handle a series of commands from HELO/EHLO to MAIL FROM, RCPT TO, and DATA, each with its specific format and processing logic. Session states must maintain correct transitions from connection initialization through authentication to mail transfer. Security issues can particularly arise during long mail content processing, concurrent connections, or complex authentication scenarios due to incorrect command parsing or state management.        
+LLM: 
+pov_harness.cc
+Human: 
+            The commit information is shown as follows:
+            Diff:
+@@ -1153,6 +1153,9 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
+     rev->data = c;
+     wev->data = c;
+ 
++    rev->cycle = (ngx_cycle_t*)ngx_cycle;
++    wev->cycle = (ngx_cycle_t*)ngx_cycle;
++
+     wev->write = 1;
+ 
+     return c;
+Diff:
+@@ -15,6 +15,7 @@
+ typedef struct ngx_module_s          ngx_module_t;
+ typedef struct ngx_conf_s            ngx_conf_t;
+ typedef struct ngx_cycle_s           ngx_cycle_t;
++typedef struct ngx_black_list_s      ngx_black_list_t;
+ typedef struct ngx_pool_s            ngx_pool_t;
+ typedef struct ngx_chain_s           ngx_chain_t;
+ typedef struct ngx_log_s             ngx_log_t;
+Diff:
+@@ -1009,6 +1009,7 @@ ngx_int_t
+ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+ {
+     size_t      len;
++    ngx_int_t   rc;
+     ngx_uint_t  create;
+     ngx_file_t  file;
+     u_char      pid[NGX_INT64_LEN + 2];
+@@ -1033,11 +1034,13 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+         return NGX_ERROR;
+     }
+ 
++    rc = NGX_OK;
++
+     if (!ngx_test_config) {
+         len = ngx_snprintf(pid, NGX_INT64_LEN + 2, "%P%N", ngx_pid) - pid;
+ 
+         if (ngx_write_file(&file, pid, len, 0) == NGX_ERROR) {
+-            return NGX_ERROR;
++            rc = NGX_ERROR;
+         }
+     }
+ 
+@@ -1046,7 +1049,7 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+                       ngx_close_file_n " \"%s\" failed", file.name.data);
+     }
+ 
+-    return NGX_OK;
++    return rc;
+ }
+ 
+ 
+@@ -1456,3 +1459,84 @@ ngx_shutdown_timer_handler(ngx_event_t *ev)
+         c[i].read->handler(c[i].read);
+     }
+ }
++
++
++void
++ngx_black_list_insert(ngx_black_list_t **black_list, u_char insert_ip[],
++    size_t size, ngx_log_t *log)
++{
++    ngx_black_list_t *reader;
++    ngx_black_list_t *new_black_list;
++
++    u_char* new_str = (u_char*)ngx_alloc(size, log);
++
++    for (size_t i = 0; i < size; i++) {
++        new_str[i] = insert_ip[i];
++    }
++
++    new_black_list = (ngx_black_list_t*)ngx_alloc(sizeof(ngx_black_list_t), log);
++    new_black_list->IP = (ngx_str_t*)ngx_alloc(sizeof(ngx_str_t), log);;
++    new_black_list->IP->data = new_str;
++    new_black_list->IP->len = size;
++    new_black_list->next = NULL;
++
++    reader = *black_list;
++
++    if (!reader) {
++        *black_list = new_black_list;
++        return;
++    }
++
++    for (reader = reader; reader && reader->next; reader = reader->next) {
++
++         if (!ngx_strcmp(insert_ip, reader->IP->data)) {
++            ngx_destroy_black_list_link(new_black_list);
++            return;
++         }
++    }
++
++    reader->next = new_black_list;
++    new_black_list->prev = reader;
++
++    return;
++}
++
++
++ngx_int_t
++ngx_black_list_remove(ngx_black_list_t **black_list, u_char remove_ip[])
++{
++    ngx_black_list_t *reader;
++
++    reader = *black_list;
++
++    if (reader && !ngx_strcmp(remove_ip, reader->IP->data)) {
++        ngx_destroy_black_list_link(reader);
++        return NGX_OK;
++    }
++
++    for (reader = reader->next; reader && reader->next; reader = reader->next) {
++        if (!ngx_strcmp(remove_ip, reader->IP->data)) {
++            ngx_double_link_remove(reader);
++            ngx_destroy_black_list_link(reader);
++            return NGX_OK;
++        }
++    }
++
++    return NGX_ERROR;
++}
++
++
++ngx_int_t
++ngx_is_ip_banned(ngx_cycle_t *cycle, ngx_connection_t *connection)
++{
++    ngx_black_list_t *reader = (cycle) ? cycle->black_list : NULL;
++
++    for (reader = reader; reader; reader = reader->next) {
++            if (!ngx_strcmp(connection->addr_text.data, reader->IP->data)) {
++                ngx_close_connection(connection);
++                return NGX_ERROR;
++            }
++    }
++
++    return NGX_OK;
++}
+Diff:
+@@ -36,6 +36,13 @@ struct ngx_shm_zone_s {
+ };
+ 
+ 
++typedef struct ngx_black_list_s {
++    ngx_str_t         *IP;
++    ngx_black_list_t  *next;
++    ngx_black_list_t  *prev;
++}ngx_black_list_t;
++
++
+ struct ngx_cycle_s {
+     void                  ****conf_ctx;
+     ngx_pool_t               *pool;
+@@ -81,6 +88,7 @@ struct ngx_cycle_s {
+     ngx_str_t                 prefix;
+     ngx_str_t                 lock_file;
+     ngx_str_t                 hostname;
++    ngx_black_list_t         *black_list;
+ };
+ 
+ 
+@@ -123,7 +131,24 @@ typedef struct {
+ 
+ 
+ #define ngx_is_init_cycle(cycle)  (cycle->conf_ctx == NULL)
+-
++#define ngx_double_link_insert(x, y)            \
++    (x)->next = (y);                            \
++    (y)->prev = (x);
++
++#define ngx_double_link_remove(x)               \
++    if ((x)->prev) (x)->prev->next = (x)->next; \
++    if ((x)->next) (x)->next->prev = (x)->prev;
++
++#define ngx_destroy_black_list_link(x)          \
++    ngx_memzero((x)->IP->data, (x)->IP->len);   \
++    ngx_free((x)->IP->data);                    \
++    (x)->IP->data = NULL;                       \
++    ngx_memzero((x)->IP, sizeof(ngx_str_t));    \
++    ngx_free((x)->IP);                          \
++    (x)->IP = NULL;                             \
++    ngx_memzero((x), sizeof(ngx_black_list_t)); \
++    ngx_free((x));                              \
++    (x) = NULL;
+ 
+ ngx_cycle_t *ngx_init_cycle(ngx_cycle_t *old_cycle);
+ ngx_int_t ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log);
+@@ -136,6 +161,10 @@ ngx_cpuset_t *ngx_get_cpu_affinity(ngx_uint_t n);
+ ngx_shm_zone_t *ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name,
+     size_t size, void *tag);
+ void ngx_set_shutdown_timer(ngx_cycle_t *cycle);
++void ngx_black_list_insert(ngx_black_list_t **black_list,
++    u_char insert_ip[], size_t size, ngx_log_t *log);
++ngx_int_t ngx_black_list_remove(ngx_black_list_t **black_list, u_char remove_ip[]);
++ngx_int_t ngx_is_ip_banned(ngx_cycle_t *cycle, ngx_connection_t *connection);
+ 
+ 
+ extern volatile ngx_cycle_t  *ngx_cycle;
+Diff:
+@@ -101,6 +101,7 @@ struct ngx_event_s {
+     int              available;
+ 
+     ngx_event_handler_pt  handler;
++    ngx_cycle_t          *cycle;
+ 
+ 
+ #if (NGX_HAVE_IOCP)
+Diff:
+@@ -20,6 +20,10 @@ static ngx_int_t ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
+ 
+ static ngx_int_t ngx_http_process_header_line(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_black_list(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_white_list(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_unique_header_line(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_multi_header_lines(ngx_http_request_t *r,
+@@ -199,6 +203,12 @@ ngx_http_header_t  ngx_http_headers_in[] = {
+     { ngx_string("Cookie"), offsetof(ngx_http_headers_in_t, cookies),
+                  ngx_http_process_multi_header_lines },
+ 
++    { ngx_string("Black-List"), offsetof(ngx_http_headers_in_t, black_list),
++                 ngx_http_process_black_list },
++
++    { ngx_string("White-List"), offsetof(ngx_http_headers_in_t, white_list),
++                 ngx_http_process_white_list },
++
+     { ngx_null_string, 0, NULL }
+ };
+ 
+@@ -392,6 +402,10 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
+         return;
+     }
+ 
++    if (ngx_is_ip_banned(rev->cycle, c)) {
++        c->close = 1;
++    }
++
+     if (c->close) {
+         ngx_http_close_connection(c);
+         return;
+@@ -1045,6 +1059,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
+ 
+     c = rev->data;
+     r = c->data;
++    r->cycle = rev->cycle;
+ 
+     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+                    "http process request line");
+@@ -1330,6 +1345,7 @@ ngx_http_process_request_headers(ngx_event_t *rev)
+ 
+     c = rev->data;
+     r = c->data;
++    r->cycle = rev->cycle;
+ 
+     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+                    "http process request header line");
+@@ -3818,3 +3834,97 @@ ngx_http_log_error_handler(ngx_http_request_t *r, ngx_http_request_t *sr,
+ 
+     return buf;
+ }
++
++
++static ngx_int_t
++ngx_http_process_white_list(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    enum State {start,
++                ip};
++    enum State state = start;
++    u_char IP_buffer[NGX_IP_LEN + 1] = {0};
++    ngx_int_t buffer_index = 0;
++    u_char* reader = h->value.data;
++    ngx_int_t result = NGX_ERROR;
++
++    // Remove each IP given
++    while (*reader != '\0') {
++        switch (state) {
++
++        case start:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++                state = ip;
++            }
++            break;
++
++        case ip:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++            } else if (*reader == ';' ||
++                     *reader == '\0' ||
++                     *reader == '\n') {
++                IP_buffer[buffer_index] = '\0';
++                buffer_index = 0;
++                state = start;
++                result = ngx_black_list_remove(&(r->cycle)->black_list, IP_buffer);
++                if (result == NGX_ERROR) goto ngx_black_list_remove_fail;
++            } else {
++                return NGX_ERROR;
++            }
++            break;
++
++        }
++        reader++;
++    }
++
++    return NGX_OK;
++
++ngx_black_list_remove_fail:
++    return NGX_ERROR;
++}
++
++
++static ngx_int_t
++ngx_http_process_black_list(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    enum State {start,
++                ip};
++    enum State state = start;
++    u_char IP_buffer[NGX_IP_LEN + 1] = {0};
++    ngx_int_t buffer_index = 0;
++    u_char* reader = h->value.data;
++
++    while (*reader != '\0') {
++        switch (state) {
++
++        case start:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++                state = ip;
++            }
++            break;
++
++        case ip:
++            if (ngx_is_valid_ip_char(*reader)) {
++                IP_buffer[buffer_index++] = *reader;
++            } else if (*reader == ';' ||
++                     *reader == '\0' ||
++                     *reader == '\n') {
++                IP_buffer[buffer_index] = '\0';
++                buffer_index = 0;
++                state = start;
++                ngx_black_list_insert(&(r->cycle)->black_list, IP_buffer, NGX_IP_LEN, r->cycle->log);
++            } else {
++                return NGX_ERROR;
++            }
++            break;
++
++        }
++        reader++;
++    }
++
++    return NGX_OK;
++}
+Diff:
+@@ -148,7 +148,8 @@
+ #define NGX_HTTP_SSI_BUFFERED              0x01
+ #define NGX_HTTP_SUB_BUFFERED              0x02
+ #define NGX_HTTP_COPY_BUFFERED             0x04
+-
++#define NGX_IP_LEN (sizeof("000.000.000.000"))
++#define ngx_is_valid_ip_char(x) (('0' <= (x) && (x) <= '9') || (x) == '.')
+ 
+ typedef enum {
+     NGX_HTTP_INITING_REQUEST_STATE = 0,
+@@ -239,6 +240,9 @@ typedef struct {
+     off_t                             content_length_n;
+     time_t                            keep_alive_n;
+ 
++    ngx_str_t                         black_list;
++    ngx_str_t                         white_list;
++
+     unsigned                          connection_type:2;
+     unsigned                          chunked:1;
+     unsigned                          msie:1;
+@@ -421,6 +425,8 @@ struct ngx_http_request_s {
+     ngx_http_post_subrequest_t       *post_subrequest;
+     ngx_http_posted_request_t        *posted_requests;
+ 
++    ngx_cycle_t                      *cycle;
++
+     ngx_int_t                         phase_handler;
+     ngx_http_handler_pt               content_handler;
+     ngx_uint_t                        access_code;
+
+            Your analysis about how to trigger the vulnerability before:
+            YES
+
+**(1) Why this commit is vulnerable?**
+
+This commit introduces a buffer overflow vulnerability in the functions `ngx_http_process_black_list` and `ngx_http_process_white_list`. Specifically, the issue arises from the way IP addresses are parsed from the `Black-List` and `White-List` HTTP headers without proper bounds checking on the buffer used to store the IP address.
+
+Here's the detailed explanation:
+
+- The functions declare a buffer `IP_buffer` of fixed size `NGX_IP_LEN + 1`, which is intended to store IP addresses up to a maximum length of `NGX_IP_LEN` characters. `NGX_IP_LEN` is defined as `sizeof("000.000.000.000")`, which evaluates to 16 (the length of a standard IPv4 address string).
+
+  ```c
+  #define NGX_IP_LEN (sizeof("000.000.000.000"))
+  u_char IP_buffer[NGX_IP_LEN + 1] = {0};
+  ```
+
+- As the functions parse the IP addresses from the header values, they increment a `buffer_index` each time a valid character is read and store the character in `IP_buffer`:
+
+  ```c
+  if (ngx_is_valid_ip_char(*reader)) {
+      IP_buffer[buffer_index++] = *reader;
+  }
+  ```
+
+- **The vulnerability occurs because there is no check to ensure that `buffer_index` does not exceed the length of `IP_buffer`.** If an attacker provides an IP address longer than `NGX_IP_LEN` characters, `buffer_index` will exceed the bounds of `IP_buffer`, resulting in a buffer overflow.
+
+- Moreover, the macro `ngx_is_valid_ip_char` only checks if the character is a digit or a dot:
+
+  ```c
+  #define ngx_is_valid_ip_char(x) (('0' <= (x) && (x) <= '9') || (x) == '.')
+  ```
+
+  This means that any sequence of digits and dots, regardless of length, will be considered valid characters to be stored in `IP_buffer`.
+
+- This unchecked buffer overflow can lead to memory corruption, which attackers might exploit to execute arbitrary code or crash the server, resulting in a denial of service.
+
+**(2) Under what conditions does the input trigger this vulnerability?**
+
+The vulnerability is triggered when an attacker sends an HTTP request containing a `Black-List` or `White-List` header with an IP address value longer than `NGX_IP_LEN` (16) characters. For example:
+
+```http
+GET / HTTP/1.1
+Host: vulnerable-server.com
+Black-List: 123.456.789.0123456789.0123456789.0123456789.0123456789
+```
+
+In this example:
+
+- The `Black-List` header contains an IP address string much longer than the expected maximum length.
+- As the server processes this header, it reads each character (digits and dots) and stores them in `IP_buffer` without checking if the buffer size is exceeded.
+- This causes `buffer_index` to increment beyond the bounds of `IP_buffer`, leading to buffer overflow.
+
+**Detailed Conditions to Trigger the Vulnerability:**
+
+1. **Header Manipulation:**
+
+   - The attacker must send a specially crafted HTTP request to the server with either the `Black-List` or `White-List` header.
+   - The header value should contain an IP address string exceeding 16 characters. This can be achieved by repeating digits and dots or appending excessive data.
+
+2. **Continuous Valid Characters:**
+
+   - The input must consist of characters that are considered valid by the `ngx_is_valid_ip_char` macro. This includes digits (`'0'` to `'9'`) and the dot (`'.'`) character.
+   - Since the parsing loop continues as long as valid characters are read, providing a long sequence of digits and dots will cause the buffer overflow.
+
+3. **Lack of Delimiters:**
+
+   - The attacker should avoid inserting delimiter characters (`';'`, `'\n'`, or `'\0'`) that would cause the function to reset the `buffer_index` or stop reading further characters.
+   - This ensures that the overflow occurs as `buffer_index` continues to increment beyond the buffer size.
+
+By exploiting this vulnerability, an attacker can cause memory corruption on the server, which may result in arbitrary code execution or a crash of the server process, leading to a denial of service.
+            The implementation of harness you need is shown as follows:
+            // Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+extern "C" {
+  #include <ngx_config.h>
+  #include <ngx_core.h>
+  #include <ngx_event.h>
+  #include <ngx_http.h>
+  #include <sys/sendfile.h>
+  }
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <sys/stat.h>
+  #include <time.h>
+  #include <unistd.h>
+  #include <sys/uio.h>
+  
+  static char configuration[] =
+  "error_log stderr emerg;\n"
+  "trace on;\n"
+  "worker_rlimit_nofile 8192;\n"
+  "pid logs/nginx.pid;\n"
+  "remote_admin off;\n"
+  "events {\n"
+  "    worker_connections 2;\n"
+  "    multi_accept off;\n"
+  "    accept_mutex off;\n"
+  "}\n"
+  "http {\n"
+  "    server_tokens off;\n"
+  "    sendfile        on;\n"
+  "    default_type application/octet-stream;\n"
+  "    map $http_upgrade $connection_upgrade {\n"
+  "      default upgrade;\n"
+  "      '' close;\n"
+  "    }\n"
+  "    error_log stderr emerg;\n"
+  "    access_log stderr;\n"
+  "    map $subdomain $nss {\n"
+  "      default local_upstream;\n"
+  "    }\n"
+  "    upstream local_upstream {\n"
+  "      server 127.0.0.1:1010 max_fails=0;\n"
+  "      server 127.0.0.1:1011 max_fails=0;\n"
+  "      server 127.0.0.1:1012 max_fails=0;\n"
+  "      server 127.0.0.1:1013 max_fails=0;\n"
+  "      server 127.0.0.1:1014 max_fails=0;\n"
+  "      server 127.0.0.1:1015 max_fails=0;\n"
+  "      server 127.0.0.1:1016 max_fails=0;\n"
+  "      server 127.0.0.1:1017 max_fails=0;\n"
+  "      server 127.0.0.1:1018 max_fails=0;\n"
+  "      server 127.0.0.1:1019 max_fails=0;\n"
+  "    }\n"
+  "    map $http_user_agent $is_modern_browser {\n"
+  "        default         0;\n"
+  "        \"~*Firefox\"     1;\n"
+  "        \"~*Chrome\"      1;\n"
+  "        \"~*Safari\"      1;\n"
+  "        \"~*Opera\"       1;\n"
+  "        \"~*Edge\"        1;\n"
+  "    }\n"
+  "    client_max_body_size 256M;\n"
+  "    client_body_temp_path /tmp/;\n"
+  "    proxy_temp_path /tmp/;\n"
+  "    proxy_buffer_size 24K;\n"
+  "    proxy_max_temp_file_size 0;\n"
+  "    proxy_buffers 8 4K;\n"
+  "    proxy_busy_buffers_size 28K;\n"
+  "    proxy_buffering off;\n"
+  "    server {\n"
+  "      listen 80;\n"
+  "      server_name ~^(?<subdomain>.+)\\.url.com$;\n"
+  "      proxy_next_upstream off;\n"
+  "      proxy_read_timeout 5m;\n"
+  "      proxy_http_version 1.1;\n"
+  "      proxy_set_header Host $http_host;\n"
+  "      proxy_set_header X-Real-IP $remote_addr;\n"
+  "      proxy_set_header X-Real-Port $remote_port;\n"
+  "      location / {\n"
+  "          root   /out/html;\n"
+  "          index  index.html;\n"
+  "          userid          on;\n"
+  "          userid_name     uid;\n"
+  "          userid_path     /;\n"
+  "          userid_expires  365d;\n"
+  "          userid_service  1;\n"
+  "          if ($is_modern_browser) {\n"
+  "              # Special configuration for modern browsers\n"
+  "              add_header Set-Cookie \"cookie=$http_cookie;host=$host\";\n"
+  "          }\n"
+  "      }\n"
+  "      location /old {\n"
+  "          rewrite ^/old/(.*)$ /new/$1 last;\n"
+  "      }\n"
+  "      location /lastConnection {\n"
+  "          return 200 \"Last IP: $last_ip\";\n"
+  "      }\n"
+  "      location /host_specs {\n"
+  "          return 200 \"Host Specifications:\\n$host_specs\";\n"
+  "      }\n"
+  "      location /prox/ {\n"
+  "        proxy_pass http://$nss;\n"
+  "        proxy_set_header Host $http_host;\n"
+  "        proxy_set_header X-Real-IP $remote_addr;\n"
+  "        proxy_set_header X-Real-Port $remote_port;\n"
+  "        proxy_set_header Connection '';\n"
+  "        chunked_transfer_encoding off;\n"
+  "        proxy_buffering off;\n"
+  "        proxy_cache off;\n"
+  "      }\n"
+  "        location = /empty {\n"
+  "            empty_gif;\n"
+  "        }\n"
+  "      }\n"
+  "}\n"
+  "\n";
+  
+  static ngx_cycle_t *cycle;
+  static ngx_log_t ngx_log;
+  static ngx_open_file_t ngx_log_file;
+  static char *my_argv[2];
+  static char arg1[] = {0, 0xA, 0};
+  
+  extern char **environ;
+  
+  static const char *config_file = "/tmp/http_config.conf";
+  
+  // Create a base state for Nginx without starting the server
+  extern "C" int InitializeNginx(void)
+  {
+    ngx_log_t *log;
+    ngx_cycle_t init_cycle;
+    ngx_core_conf_t  *ccf;
+  
+    ngx_debug_init();
+  
+    // Just output logs to stderr
+    ngx_log.file = &ngx_log_file;
+    ngx_log.log_level = NGX_LOG_EMERG;
+    ngx_log_file.fd = ngx_stderr;
+    log = &ngx_log;
+  
+    ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
+    init_cycle.log = log;
+    ngx_cycle = &init_cycle;
+  
+    init_cycle.pool = ngx_create_pool(1024, log);
+  
+    // Set custom argv/argc
+    my_argv[0] = arg1;
+    my_argv[1] = NULL;
+    ngx_argv = ngx_os_argv = my_argv;
+    ngx_argc = 0;
+  
+    if (ngx_strerror_init() != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_strerror_init\n");
+      exit(-1);
+    }
+  
+    ngx_time_init();
+  
+    ngx_regex_init();
+    
+    // Weird trick to free a leaking buffer always caught by ASAN
+    // We basically let ngx overwrite the environment variable, free the leak and
+    // restore the environment as before.
+    char *env_before = environ[0];
+    environ[0] = my_argv[0] + 1;
+  
+    if (ngx_os_init(log) != NGX_OK) {
+      return 1;
+    }
+  
+    free(environ[0]);
+    environ[0] = env_before;
+  
+    ngx_crc32_table_init();
+  
+    ngx_slab_sizes_init();
+  
+    ngx_preinit_modules();
+  
+    FILE *fptr = fopen(config_file, "w");
+    fprintf(fptr, "%s", configuration);
+    fclose(fptr);
+    init_cycle.conf_file.len = strlen(config_file);
+    init_cycle.conf_file.data = (unsigned char *) config_file;
+  
+    cycle = ngx_init_cycle(&init_cycle);
+  
+    if ( cycle == NULL ) {
+      fprintf(stdout, "[ERROR] init cycle failed probably bad config\n");
+      exit(-1);
+    }
+    ngx_os_status(cycle->log);
+  
+    ngx_cycle = cycle;
+  
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    
+    if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
+      ngx_process = NGX_PROCESS_MASTER;
+    }
+  
+  
+    if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_create_pidfile\n");
+      exit(-1);
+    }
+    
+    if (ngx_log_redirect_stderr(cycle) != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_log_redirect_stderr\n");
+      exit(-1);
+    }
+  
+    ngx_event_flags = 1;
+    ngx_queue_init(&ngx_posted_accept_events);
+    ngx_queue_init(&ngx_posted_next_events);
+    ngx_queue_init(&ngx_posted_events);
+    ngx_event_timer_init(cycle->log);
+  
+    for (int i = 0; cycle->modules[i]; i++) {
+      if (cycle->modules[i]->init_process) {
+        if (cycle->modules[i]->init_process(cycle) == NGX_ERROR) {
+          //fatal
+          exit(2);
+        }
+      }
+    }
+  
+    return 0;
+  }
+  
+  int http_listen_fd = -1;
+  int http_client_fd = -1;
+  
+  int pipefd[2];
+  
+  // Opens a pipe, dupes that over the opened client socket and writes the fuzz data there
+  int setup_pipe_data(const uint8_t *data, size_t size)
+  {
+    ssize_t numBytes;
+    int flags;
+  
+    // If the client isn't connected then that is bad
+    if (http_client_fd == -1) {
+      exit(-1);
+    }
+  
+    if (pipe(pipefd) == -1) {
+      perror("pipe");
+      exit(-1);
+    }
+  
+    // Write the data then close the write end of the pipe
+    numBytes = write(pipefd[1], data, size);
+    if (numBytes == -1) {
+      perror("write");
+      exit(-1);
+    }
+  
+    // Set the read end of the pipe to non-blocking
+      flags = fcntl(pipefd[0], F_GETFL, 0);
+      if (flags == -1) {
+          perror("fcntl F_GETFL");
+          exit(-1);
+      }
+  
+      if (fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK) == -1) {
+          perror("fcntl F_SETFL");
+          exit(-1);
+      }
+  
+    // Dup the read end of the pipe over the client fd
+    if (dup2(pipefd[0], http_client_fd) == -1) {
+          perror("dup2");
+          exit(-1);
+      }
+  
+    return 0;
+  
+  }
+  
+  
+  extern "C"
+  int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+  {
+    static int init = InitializeNginx();
+    if(init != 0) {
+      fprintf(stdout, "[ERROR] Init failed\n");
+      exit(0);
+    }
+  
+    //data = (const uint8_t *)"GET / HTTP/1.1\r\nHost: localhost\r\nAccept: */*\r\n\r\n";
+    //size = strlen((const char *)data);
+  
+    // This being here triggers a call to accept. The wrappers will handle the call
+    //  and create the first socket.
+    ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+  
+    // Create the pipe that will allow nginx to read the data as if it were a socket.
+    setup_pipe_data( data, size );
+  
+    // The accept takes a connection, which drops the free connection count to 2. There
+    //    could also be a connection to the http auth server which takes up a connection
+    //    as well as a connection to the mail proxy. The auth server connection will likely
+    //    be disconnected prior to the proxy. Once all these connections are done it means
+    //    that there is no additional data in the pipe previously set up so it is time to bail.
+    while (ngx_cycle->free_connection_n != 1) {
+      ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+    }
+  
+    // Clean up the pipes
+    close(pipefd[0]);
+    close(pipefd[1]);
+  
+    // Make sure that all of the global state variables are reset.
+    http_client_fd = -1;
+  
+    return 0;
+  }
+  
+  /*************
+   * The code below here are wrappers that mimic the network traffic expected
+   * of a mail proxy. They will be specific to each fuzzer and so must be
+   * included in the fuzzer itself. Initially, when there was just the single
+   * http fuzzer these were separate but with additional fuzzers comes the
+   * need for individualized wrappers.
+   * ************/
+  
+  #include <sys/socket.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <grp.h>
+  #include <pwd.h>
+  #include <sys/epoll.h>
+  
+  // Because the __real_<symbol> doesn't get resolved at compile time we need to help out a bit
+  extern "C" typeof (recv) __real_recv;
+  extern "C" typeof (open) __real_open;
+  extern "C" typeof (close) __real_close;
+  extern "C" typeof (send) __real_send;
+  extern "C" typeof (select) __real_select;
+  extern "C" typeof (read) __real_read;
+  extern "C" typeof (epoll_create) __real_epoll_create;
+  extern "C" typeof (epoll_create1) __real_epoll_create1;
+  extern "C" typeof (epoll_ctl) __real_epoll_ctl;
+  extern "C" typeof (epoll_wait) __real_epoll_wait;
+  extern "C" typeof (accept) __real_accept;
+  extern "C" typeof (accept4) __real_accept4;
+  extern "C" typeof (getsockopt) __real_getsockopt;
+  extern "C" typeof (ioctl) __real_ioctl;
+  extern "C" typeof (writev) __real_writev;
+  
+  extern "C"
+  ssize_t __wrap_writev(int fd, const struct iovec *iov, int iovcnt)
+  {
+    size_t totalBytes = 0;
+    
+    for (int i = 0; i < iovcnt; ++i) {
+      totalBytes += iov[i].iov_len;
+    }
+    
+    return totalBytes;
+  }
+  
+  extern "C"
+  int __wrap_ioctl(int fd, unsigned long request, ...) {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    return 0;
+  }
+  
+  extern "C"
+  ssize_t __wrap_recv(int sockfd, void *buf, size_t len, int flags)
+  {
+    ssize_t count;
+    ssize_t res;
+    char c;
+  
+    if (sockfd == http_client_fd ) {
+      count = 0;
+  
+      while ( count < len ) {
+        res = __real_read(sockfd, &c, 1);
+        
+        if (res == 0 ) {
+          return count;
+        } else if ( res < 0 ) {
+          return 0;
+        }
+        
+        ((char *)buf)[count++] = c;
+        
+        if ( c == '\n') {
+          return count;
+        }
+      }
+      
+      return count;
+    }
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_open(const char *pathname, int flags, mode_t mode)
+  {
+    return __real_open(pathname, flags, mode);
+  }
+  
+  extern "C"
+  int __wrap_close(int sockfd)
+  {
+    if ( sockfd == http_client_fd ) {
+      http_client_fd = -1;
+    }
+  
+    if ( sockfd == http_listen_fd ) {
+      http_listen_fd = -1;
+    }
+  
+    return __real_close(sockfd);
+  }
+  
+  extern "C"
+  ssize_t __wrap_send(int sockfd, const void *buf, size_t len, int flags)
+  {
+    return __real_send(sockfd, buf, len, flags);
+  }
+  
+  extern "C"
+  int __wrap_select(int nfds, fd_set *readfds, fd_set *writefds,
+                    fd_set *exceptfds, struct timeval *timeout)
+  {
+    int count = 0;
+  
+    if ( readfds ) {
+      if ( http_listen_fd != -1) {
+        FD_SET(http_listen_fd, readfds);
+        count++;
+      }
+  
+      if ( http_client_fd != -1) {
+        FD_SET(http_client_fd, readfds);
+        count++;
+      }
+    }
+  
+    if ( writefds ) {
+      if ( http_client_fd != -1) {
+        FD_SET(http_client_fd, writefds);
+        count++;
+      }
+    }
+  
+    return count;
+  }
+  
+  extern "C"
+  ssize_t __wrap_read(int fd, void *buf, size_t count)
+  {
+    return __real_read(fd, buf, count);
+  }
+  
+  extern "C"
+  int __wrap_epoll_create(int size)
+  {
+    return __real_epoll_create(size);
+  }
+  
+  extern "C"
+  int  __wrap_epoll_create1(int flags)
+  {
+    return __real_epoll_create1(flags);
+  }
+  
+  extern "C"
+  int __wrap_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+  {
+    return __real_epoll_ctl(epfd, op, fd, event);
+  }
+  
+  extern "C"
+  int __wrap_epoll_wait(int epfd, struct epoll_event *events,
+                        int maxevents, int timeout)
+  {
+    return __real_epoll_wait(epfd, events, maxevents, timeout);
+  }
+  
+  extern "C"
+  int __wrap_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+  {
+    struct sockaddr_in * sin = (struct sockaddr_in *)addr;
+  
+    // We shouldn't ever actually call accept
+    if ( sockfd == http_listen_fd && http_client_fd == -1) {
+      // We do want a real socket though
+      http_client_fd = socket( AF_INET, SOCK_STREAM, 0);
+  
+      // Setup the appropriate false connection information
+      sin->sin_family = AF_INET;
+      sin->sin_port = htons(9999);
+      sin->sin_addr.s_addr = 0x0100007f; // "127.0.0.1"
+  
+      return http_client_fd;
+    }
+  
+    // Otherwise, set errno and return a failure
+    errno = 11; // NGX_EAGAIN
+  
+    return -1;
+  }
+  
+  extern "C"
+  int __wrap_accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
+  {  
+    return __real_accept4(sockfd, addr, addrlen, flags);
+  }
+  
+  extern "C"
+  int __wrap_shutdown(int socket, int how)
+  { 
+    return 0; 
+  }
+  
+  extern "C"
+  ssize_t __wrap_listen(int fd, void *buf, size_t bytes)
+  {
+    // There should only be one listener set
+    http_listen_fd = fd;
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_setsockopt(int fd, int level, int optname, const void *optval,
+                        socklen_t optlen)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_getsockopt(int sockfd, int level, int optname,
+                        void *optval, socklen_t *optlen)
+  {
+    int *n = (int*)optval;
+  
+    // The getsockopt wants to confirm that the socket is a sock_stream
+    // SOL_SOCKET, SO_TYPE
+  
+    *n = SOCK_STREAM;
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_chmod(const char *pathname, mode_t mode)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_chown(const char *pathname, uid_t owner, gid_t group)
+  {
+    return 0;
+  }
+  
+  struct passwd pwd;
+  struct group grp;
+  
+  extern "C"
+  struct passwd *__wrap_getpwnam(const char *name)
+  {
+    pwd.pw_uid = 1;
+    return &pwd;
+  }
+  
+  extern "C"
+  struct group *__wrap_getgrnam(const char *name)
+  {
+    grp.gr_gid = 1;
+    return &grp;
+  }
+            Now you need to modify this code to make fuzzing more efficient. Specifically, you should:
+            1. Generate an input that can reach the vulnerable function.
+            2. Analyze which part of the input can trigger this vulnerability (we called the part that trigger the vulnerability as critical part)?
+            3. Keep remaining part fixed in fuzz driver. Let input generated by libFuzzer to fill the critical part.
+            4. Keep as many parts of the input unrelated to triggering the vulnerability unchanged as possible.
+            5. You can only modify the content inside the LLVMFuzzerTestOneInput function. Do not introduce additional dependencies that may cause compilation failure. The function must be returned in its entirety, and it should be ready to use as-is.
+        
+LLM: 
+```c
+extern "C"
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+  static int init = InitializeNginx();
+  if(init != 0) {
+    fprintf(stdout, "[ERROR] Init failed\n");
+    exit(0);
+  }
+
+  // Construct the HTTP request
+  const char *request_prefix = "GET / HTTP/1.1\r\nHost: localhost\r\nBlack-List: ";
+  const char *request_suffix = "\r\n\r\n";
+  
+  // Calculate the total size
+  size_t prefix_size = strlen(request_prefix);
+  size_t suffix_size = strlen(request_suffix);
+  size_t total_size = prefix_size + size + suffix_size;
+
+  // Limit the size of the request to prevent excessive resource usage
+  if (size > 1000) {
+      size = 1000;
+      total_size = prefix_size + size + suffix_size;
+  }
+
+  // Allocate a buffer to hold the request
+  char *request = (char *)malloc(total_size + 1);
+  if (!request) {
+    // If allocation fails, return 0
+    return 0;
+  }
+
+  // Copy the prefix
+  memcpy(request, request_prefix, prefix_size);
+
+  // Copy the data (the value of Black-List header)
+  memcpy(request + prefix_size, data, size);
+
+  // Copy the suffix
+  memcpy(request + prefix_size + size, request_suffix, suffix_size);
+
+  // Null-terminate the request string
+  request[total_size] = '\0';
+
+  // Update 'data' and 'size' to use the constructed request
+  data = (const uint8_t *)request;
+  size = total_size;
+
+  // Process events and timers to accept the connection
+  ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+
+  // Set up the pipe to feed the request into Nginx
+  setup_pipe_data(data, size);
+
+  // Continue processing events until the connection is closed
+  while (ngx_cycle->free_connection_n != 1) {
+    ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+  }
+
+  // Clean up the pipes
+  close(pipefd[0]);
+  close(pipefd[1]);
+
+  // Clean up the request buffer
+  free(request);
+
+  // Reset the client file descriptor
+  http_client_fd = -1;
+
+  return 0;
+}
+```

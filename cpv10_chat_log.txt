@@ -1,0 +1,1129 @@
+Human: 
+            You are an expect to help detecting vulnerabilities introduced by commits. The commit information is shown as follows:
+            Diff:
+@@ -3,11 +3,9 @@
+ <head>
+ <title>Error</title>
+ <style>
+-    body {
+-        width: 35em;
+-        margin: 0 auto;
+-        font-family: Tahoma, Verdana, Arial, sans-serif;
+-    }
++html { color-scheme: light dark; }
++body { width: 35em; margin: 0 auto;
++font-family: Tahoma, Verdana, Arial, sans-serif; }
+ </style>
+ </head>
+ <body>
+Diff:
+@@ -3,11 +3,9 @@
+ <head>
+ <title>Welcome to nginx!</title>
+ <style>
+-    body {
+-        width: 35em;
+-        margin: 0 auto;
+-        font-family: Tahoma, Verdana, Arial, sans-serif;
+-    }
++html { color-scheme: light dark; }
++body { width: 35em; margin: 0 auto;
++font-family: Tahoma, Verdana, Arial, sans-serif; }
+ </style>
+ </head>
+ <body>
+Diff:
+@@ -514,6 +514,15 @@ ngx_http_header_filter(ngx_http_request_t *r)
+         *b->last++ = CR; *b->last++ = LF;
+     }
+ 
++    if (r->headers_in.prefer) {
++        b->last = ngx_cpymem(b->last, "Prefer: ",
++                             sizeof("Prefer: ") - 1);
++        b->last = ngx_cpymem(b->last, r->headers_in.prefer->value.data,
++                             r->headers_in.prefer->value.len);
++
++        *b->last++ = CR; *b->last++ = LF;
++    }
++
+     if (host.data) {
+ 
+         p = b->last + sizeof("Location: ") - 1;
+@@ -551,6 +560,10 @@ ngx_http_header_filter(ngx_http_request_t *r)
+                              sizeof("Transfer-Encoding: chunked" CRLF) - 1);
+     }
+ 
++    if (r->headers_in.prefer) {
++        len += sizeof("Prefer: " CRLF) + r->headers_in.prefer->value.len;
++    }
++
+     if (r->headers_out.status == NGX_HTTP_SWITCHING_PROTOCOLS) {
+         b->last = ngx_cpymem(b->last, "Connection: upgrade" CRLF,
+                              sizeof("Connection: upgrade" CRLF) - 1);
+Diff:
+@@ -30,6 +30,8 @@ static ngx_int_t ngx_http_process_multi_header_lines(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_host(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_prefer(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_connection(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_user_agent(ngx_http_request_t *r,
+@@ -126,6 +128,9 @@ ngx_http_header_t  ngx_http_headers_in[] = {
+                  offsetof(ngx_http_headers_in_t, content_type),
+                  ngx_http_process_header_line },
+ 
++    { ngx_string("Prefer"), offsetof(ngx_http_headers_in_t, prefer),
++                 ngx_http_process_prefer },
++
+     { ngx_string("Range"), offsetof(ngx_http_headers_in_t, range),
+                  ngx_http_process_header_line },
+ 
+@@ -4017,3 +4022,38 @@ ngx_http_process_black_list(ngx_http_request_t *r, ngx_table_elt_t *h,
+ 
+     return NGX_OK;
+ }
++
++
++static ngx_int_t
++ngx_http_process_prefer(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    ngx_table_elt_t *p;
++
++    if (r->headers_in.prefer) {
++        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
++                      "client sent duplicate host header: \"%V: %V\", "
++                      "previous value: \"%V: %V\"",
++                      &h->key, &h->value, &r->headers_in.prefer->key,
++                      &r->headers_in.prefer->value);
++        ngx_free(r->headers_in.prefer);
++        return NGX_OK;
++    }
++
++    p = ngx_alloc(sizeof(ngx_table_elt_t), r->connection->log);
++
++    if (!p) {
++        ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
++        return NGX_ERROR;
++    }
++
++    p->hash = h->hash;
++    p->key.len = h->key.len;
++    p->key.data = h->key.data;
++    p->value.len = h->value.len;
++    p->value.data = h->value.data;
++
++    r->headers_in.prefer = p;
++
++    return NGX_OK;
++}
+Diff:
+@@ -190,6 +190,7 @@ typedef struct {
+     ngx_table_elt_t                  *if_match;
+     ngx_table_elt_t                  *if_none_match;
+     ngx_table_elt_t                  *user_agent;
++    ngx_table_elt_t                  *prefer;
+     ngx_table_elt_t                  *referer;
+     ngx_table_elt_t                  *content_length;
+     ngx_table_elt_t                  *content_range;
+
+            Does this commit introduce any new vulnerability? If this commit has new vulnerability, please tell me 'YES' in the first line and analyze the cause in the followings. Otherwise, please return 'NO'.
+            Your cause should contain the following information:
+            (1) Why this commit is vulnerable?
+            (2) Under what conditions does the input trigger this vulnerability? The more detailed, the better.
+        
+LLM: 
+YES
+
+---
+
+**(1) Why this commit is vulnerable?**
+
+The commit introduces a vulnerability by copying the value of the `Prefer` header from the incoming HTTP request directly into the HTTP response headers without any validation or sanitization. Specifically, in the `ngx_http_header_filter` function, the code adds the following block:
+
+```c
+if (r->headers_in.prefer) {
+    b->last = ngx_cpymem(b->last, "Prefer: ",
+                         sizeof("Prefer: ") - 1);
+    b->last = ngx_cpymem(b->last, r->headers_in.prefer->value.data,
+                         r->headers_in.prefer->value.len);
+
+    *b->last++ = CR; *b->last++ = LF;
+}
+```
+
+This code appends the `Prefer` header and its value from the request to the response headers. The vulnerability arises because there's no validation of the header value `r->headers_in.prefer->value.data` before copying it into the response. If an attacker includes malicious content in the `Prefer` header value, such as carriage return (`\r`) and line feed (`\n`) characters, they can manipulate the structure of the HTTP response headers.
+
+By injecting CRLF sequences into the `Prefer` header value, an attacker can perform **HTTP Response Splitting** or **Header Injection** attacks. This allows the attacker to:
+
+- Inject additional arbitrary headers into the response.
+- Alter the HTTP response body.
+- Conduct cross-site scripting (XSS) attacks by injecting malicious scripts.
+- Facilitate cache poisoning by manipulating responses stored in caches.
+
+**(2) Under what conditions does the input trigger this vulnerability?**
+
+The vulnerability is triggered when an attacker sends an HTTP request to the server with a specially crafted `Prefer` header value containing CRLF characters and malicious content. Here are the conditions:
+
+1. **Attacker-Controlled Input**: The server must accept and process the `Prefer` header from client requests without authentication or restrictions.
+   
+2. **Malicious `Prefer` Header Value**: The attacker includes CRLF characters in the `Prefer` header value to break out of the intended header field and inject additional headers or content. For example:
+
+   ```
+   Prefer: safe-value\r\nInjected-Header: injected-value\r\n
+   ```
+
+3. **No Input Validation or Sanitization**: The server does not perform any validation to detect and remove CRLF characters or other malicious content from the `Prefer` header value before including it in the response.
+
+4. **Response Header Construction**: The server constructs the HTTP response headers by directly copying the malicious `Prefer` header value into the header section of the response.
+
+**Detailed Attack Scenario:**
+
+- **Step 1**: The attacker crafts an HTTP request to the vulnerable server, including a `Prefer` header with malicious content:
+
+  ```
+  GET / HTTP/1.1
+  Host: vulnerable.example.com
+  Prefer: exploit\r\nSet-Cookie: sessionid=attacker_session\r\n
+  ```
+
+- **Step 2**: The server processes the request and, due to the new code introduced in the commit, includes the `Prefer` header in the response without sanitization:
+
+  ```http
+  HTTP/1.1 200 OK
+  Content-Type: text/html
+  Prefer: exploit
+  Set-Cookie: sessionid=attacker_session
+
+  [Rest of the response body]
+  ```
+
+- **Step 3**: The injected `Set-Cookie` header sets a cookie in the victim's browser, which could be used for session fixation or other malicious purposes.
+
+- **Potential Impact**:
+
+  - **Cross-Site Scripting (XSS)**: By injecting scripts into the response.
+  - **Session Hijacking**: By setting or overwriting cookies.
+  - **Cache Poisoning**: Manipulating responses cached by intermediaries.
+  - **Open Redirects**: Altering the redirection headers to malicious URLs.
+
+**Key Points:**
+
+- The vulnerability is exploited by including CRLF characters in the `Prefer` header value.
+- Any client that can send requests to the server can exploit this vulnerability without authentication.
+- The lack of input validation on the `Prefer` header value is the root cause.
+
+**Recommendation:**
+
+To fix this vulnerability, the application should:
+
+- **Validate and Sanitize Input**: Remove or encode CRLF characters and other non-printable characters from the `Prefer` header value before including it in the response.
+- **Limit Header Reflection**: Avoid reflecting client-supplied header values in the response headers unless necessary and safe.
+- **Use Standard Headers**: Follow HTTP standards by responding with appropriate headers like `Preference-Applied` instead of echoing `Prefer`.
+
+---
+Human: 
+            You need to choose the one you need from the following harness and I will give you the file name and function description. Then tell me the filename you need. Just tell me the filename, no additional explanation or output is needed.
+                1. pov_harness.cc
+        vulnerabilities are primarily related to the request processing chain. Throughout the HTTP request's lifecycle from reception to response, issues may arise in request method parsing, URI normalization, header key-value parsing, route rule matching, and proxy configuration forwarding. Buffer overflows, memory leaks, or logical vulnerabilities are particularly likely when handling headers of abnormal length, malformed URIs, special cookie values, complex location configurations, or multi-layer proxy forwarding.
+    2. mail_request_harness.cc
+        vulnerabilities are mainly associated with state transitions and authentication flows. The authentication process involves interaction with the auth server (auth_http handling), authentication state validation (auth_done state), and result processing. As a stateful protocol, POP3 must strictly transition between AUTHORIZATION, TRANSACTION, and UPDATE states, each with its specific command set. Improper state transition handling or authentication flow flaws can lead to unauthorized access or state confusion.
+    3. smtp_harness.cc
+        vulnerabilities primarily relate to command processing and session management. The SMTP server must handle a series of commands from HELO/EHLO to MAIL FROM, RCPT TO, and DATA, each with its specific format and processing logic. Session states must maintain correct transitions from connection initialization through authentication to mail transfer. Security issues can particularly arise during long mail content processing, concurrent connections, or complex authentication scenarios due to incorrect command parsing or state management.        
+LLM: 
+pov_harness.cc
+Human: 
+            The commit information is shown as follows:
+            Diff:
+@@ -3,11 +3,9 @@
+ <head>
+ <title>Error</title>
+ <style>
+-    body {
+-        width: 35em;
+-        margin: 0 auto;
+-        font-family: Tahoma, Verdana, Arial, sans-serif;
+-    }
++html { color-scheme: light dark; }
++body { width: 35em; margin: 0 auto;
++font-family: Tahoma, Verdana, Arial, sans-serif; }
+ </style>
+ </head>
+ <body>
+Diff:
+@@ -3,11 +3,9 @@
+ <head>
+ <title>Welcome to nginx!</title>
+ <style>
+-    body {
+-        width: 35em;
+-        margin: 0 auto;
+-        font-family: Tahoma, Verdana, Arial, sans-serif;
+-    }
++html { color-scheme: light dark; }
++body { width: 35em; margin: 0 auto;
++font-family: Tahoma, Verdana, Arial, sans-serif; }
+ </style>
+ </head>
+ <body>
+Diff:
+@@ -514,6 +514,15 @@ ngx_http_header_filter(ngx_http_request_t *r)
+         *b->last++ = CR; *b->last++ = LF;
+     }
+ 
++    if (r->headers_in.prefer) {
++        b->last = ngx_cpymem(b->last, "Prefer: ",
++                             sizeof("Prefer: ") - 1);
++        b->last = ngx_cpymem(b->last, r->headers_in.prefer->value.data,
++                             r->headers_in.prefer->value.len);
++
++        *b->last++ = CR; *b->last++ = LF;
++    }
++
+     if (host.data) {
+ 
+         p = b->last + sizeof("Location: ") - 1;
+@@ -551,6 +560,10 @@ ngx_http_header_filter(ngx_http_request_t *r)
+                              sizeof("Transfer-Encoding: chunked" CRLF) - 1);
+     }
+ 
++    if (r->headers_in.prefer) {
++        len += sizeof("Prefer: " CRLF) + r->headers_in.prefer->value.len;
++    }
++
+     if (r->headers_out.status == NGX_HTTP_SWITCHING_PROTOCOLS) {
+         b->last = ngx_cpymem(b->last, "Connection: upgrade" CRLF,
+                              sizeof("Connection: upgrade" CRLF) - 1);
+Diff:
+@@ -30,6 +30,8 @@ static ngx_int_t ngx_http_process_multi_header_lines(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_host(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
++static ngx_int_t ngx_http_process_prefer(ngx_http_request_t *r,
++    ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_connection(ngx_http_request_t *r,
+     ngx_table_elt_t *h, ngx_uint_t offset);
+ static ngx_int_t ngx_http_process_user_agent(ngx_http_request_t *r,
+@@ -126,6 +128,9 @@ ngx_http_header_t  ngx_http_headers_in[] = {
+                  offsetof(ngx_http_headers_in_t, content_type),
+                  ngx_http_process_header_line },
+ 
++    { ngx_string("Prefer"), offsetof(ngx_http_headers_in_t, prefer),
++                 ngx_http_process_prefer },
++
+     { ngx_string("Range"), offsetof(ngx_http_headers_in_t, range),
+                  ngx_http_process_header_line },
+ 
+@@ -4017,3 +4022,38 @@ ngx_http_process_black_list(ngx_http_request_t *r, ngx_table_elt_t *h,
+ 
+     return NGX_OK;
+ }
++
++
++static ngx_int_t
++ngx_http_process_prefer(ngx_http_request_t *r, ngx_table_elt_t *h,
++    ngx_uint_t offset)
++{
++    ngx_table_elt_t *p;
++
++    if (r->headers_in.prefer) {
++        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
++                      "client sent duplicate host header: \"%V: %V\", "
++                      "previous value: \"%V: %V\"",
++                      &h->key, &h->value, &r->headers_in.prefer->key,
++                      &r->headers_in.prefer->value);
++        ngx_free(r->headers_in.prefer);
++        return NGX_OK;
++    }
++
++    p = ngx_alloc(sizeof(ngx_table_elt_t), r->connection->log);
++
++    if (!p) {
++        ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
++        return NGX_ERROR;
++    }
++
++    p->hash = h->hash;
++    p->key.len = h->key.len;
++    p->key.data = h->key.data;
++    p->value.len = h->value.len;
++    p->value.data = h->value.data;
++
++    r->headers_in.prefer = p;
++
++    return NGX_OK;
++}
+Diff:
+@@ -190,6 +190,7 @@ typedef struct {
+     ngx_table_elt_t                  *if_match;
+     ngx_table_elt_t                  *if_none_match;
+     ngx_table_elt_t                  *user_agent;
++    ngx_table_elt_t                  *prefer;
+     ngx_table_elt_t                  *referer;
+     ngx_table_elt_t                  *content_length;
+     ngx_table_elt_t                  *content_range;
+
+            Your analysis about how to trigger the vulnerability before:
+            YES
+
+---
+
+**(1) Why this commit is vulnerable?**
+
+The commit introduces a vulnerability by copying the value of the `Prefer` header from the incoming HTTP request directly into the HTTP response headers without any validation or sanitization. Specifically, in the `ngx_http_header_filter` function, the code adds the following block:
+
+```c
+if (r->headers_in.prefer) {
+    b->last = ngx_cpymem(b->last, "Prefer: ",
+                         sizeof("Prefer: ") - 1);
+    b->last = ngx_cpymem(b->last, r->headers_in.prefer->value.data,
+                         r->headers_in.prefer->value.len);
+
+    *b->last++ = CR; *b->last++ = LF;
+}
+```
+
+This code appends the `Prefer` header and its value from the request to the response headers. The vulnerability arises because there's no validation of the header value `r->headers_in.prefer->value.data` before copying it into the response. If an attacker includes malicious content in the `Prefer` header value, such as carriage return (`\r`) and line feed (`\n`) characters, they can manipulate the structure of the HTTP response headers.
+
+By injecting CRLF sequences into the `Prefer` header value, an attacker can perform **HTTP Response Splitting** or **Header Injection** attacks. This allows the attacker to:
+
+- Inject additional arbitrary headers into the response.
+- Alter the HTTP response body.
+- Conduct cross-site scripting (XSS) attacks by injecting malicious scripts.
+- Facilitate cache poisoning by manipulating responses stored in caches.
+
+**(2) Under what conditions does the input trigger this vulnerability?**
+
+The vulnerability is triggered when an attacker sends an HTTP request to the server with a specially crafted `Prefer` header value containing CRLF characters and malicious content. Here are the conditions:
+
+1. **Attacker-Controlled Input**: The server must accept and process the `Prefer` header from client requests without authentication or restrictions.
+   
+2. **Malicious `Prefer` Header Value**: The attacker includes CRLF characters in the `Prefer` header value to break out of the intended header field and inject additional headers or content. For example:
+
+   ```
+   Prefer: safe-value\r\nInjected-Header: injected-value\r\n
+   ```
+
+3. **No Input Validation or Sanitization**: The server does not perform any validation to detect and remove CRLF characters or other malicious content from the `Prefer` header value before including it in the response.
+
+4. **Response Header Construction**: The server constructs the HTTP response headers by directly copying the malicious `Prefer` header value into the header section of the response.
+
+**Detailed Attack Scenario:**
+
+- **Step 1**: The attacker crafts an HTTP request to the vulnerable server, including a `Prefer` header with malicious content:
+
+  ```
+  GET / HTTP/1.1
+  Host: vulnerable.example.com
+  Prefer: exploit\r\nSet-Cookie: sessionid=attacker_session\r\n
+  ```
+
+- **Step 2**: The server processes the request and, due to the new code introduced in the commit, includes the `Prefer` header in the response without sanitization:
+
+  ```http
+  HTTP/1.1 200 OK
+  Content-Type: text/html
+  Prefer: exploit
+  Set-Cookie: sessionid=attacker_session
+
+  [Rest of the response body]
+  ```
+
+- **Step 3**: The injected `Set-Cookie` header sets a cookie in the victim's browser, which could be used for session fixation or other malicious purposes.
+
+- **Potential Impact**:
+
+  - **Cross-Site Scripting (XSS)**: By injecting scripts into the response.
+  - **Session Hijacking**: By setting or overwriting cookies.
+  - **Cache Poisoning**: Manipulating responses cached by intermediaries.
+  - **Open Redirects**: Altering the redirection headers to malicious URLs.
+
+**Key Points:**
+
+- The vulnerability is exploited by including CRLF characters in the `Prefer` header value.
+- Any client that can send requests to the server can exploit this vulnerability without authentication.
+- The lack of input validation on the `Prefer` header value is the root cause.
+
+**Recommendation:**
+
+To fix this vulnerability, the application should:
+
+- **Validate and Sanitize Input**: Remove or encode CRLF characters and other non-printable characters from the `Prefer` header value before including it in the response.
+- **Limit Header Reflection**: Avoid reflecting client-supplied header values in the response headers unless necessary and safe.
+- **Use Standard Headers**: Follow HTTP standards by responding with appropriate headers like `Preference-Applied` instead of echoing `Prefer`.
+
+---
+            The implementation of harness you need is shown as follows:
+            // Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+extern "C" {
+  #include <ngx_config.h>
+  #include <ngx_core.h>
+  #include <ngx_event.h>
+  #include <ngx_http.h>
+  #include <sys/sendfile.h>
+  }
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <sys/stat.h>
+  #include <time.h>
+  #include <unistd.h>
+  #include <sys/uio.h>
+  
+  static char configuration[] =
+  "error_log stderr emerg;\n"
+  "trace on;\n"
+  "worker_rlimit_nofile 8192;\n"
+  "pid logs/nginx.pid;\n"
+  "remote_admin off;\n"
+  "events {\n"
+  "    worker_connections 2;\n"
+  "    multi_accept off;\n"
+  "    accept_mutex off;\n"
+  "}\n"
+  "http {\n"
+  "    server_tokens off;\n"
+  "    sendfile        on;\n"
+  "    default_type application/octet-stream;\n"
+  "    map $http_upgrade $connection_upgrade {\n"
+  "      default upgrade;\n"
+  "      '' close;\n"
+  "    }\n"
+  "    error_log stderr emerg;\n"
+  "    access_log stderr;\n"
+  "    map $subdomain $nss {\n"
+  "      default local_upstream;\n"
+  "    }\n"
+  "    upstream local_upstream {\n"
+  "      server 127.0.0.1:1010 max_fails=0;\n"
+  "      server 127.0.0.1:1011 max_fails=0;\n"
+  "      server 127.0.0.1:1012 max_fails=0;\n"
+  "      server 127.0.0.1:1013 max_fails=0;\n"
+  "      server 127.0.0.1:1014 max_fails=0;\n"
+  "      server 127.0.0.1:1015 max_fails=0;\n"
+  "      server 127.0.0.1:1016 max_fails=0;\n"
+  "      server 127.0.0.1:1017 max_fails=0;\n"
+  "      server 127.0.0.1:1018 max_fails=0;\n"
+  "      server 127.0.0.1:1019 max_fails=0;\n"
+  "    }\n"
+  "    map $http_user_agent $is_modern_browser {\n"
+  "        default         0;\n"
+  "        \"~*Firefox\"     1;\n"
+  "        \"~*Chrome\"      1;\n"
+  "        \"~*Safari\"      1;\n"
+  "        \"~*Opera\"       1;\n"
+  "        \"~*Edge\"        1;\n"
+  "    }\n"
+  "    client_max_body_size 256M;\n"
+  "    client_body_temp_path /tmp/;\n"
+  "    proxy_temp_path /tmp/;\n"
+  "    proxy_buffer_size 24K;\n"
+  "    proxy_max_temp_file_size 0;\n"
+  "    proxy_buffers 8 4K;\n"
+  "    proxy_busy_buffers_size 28K;\n"
+  "    proxy_buffering off;\n"
+  "    server {\n"
+  "      listen 80;\n"
+  "      server_name ~^(?<subdomain>.+)\\.url.com$;\n"
+  "      proxy_next_upstream off;\n"
+  "      proxy_read_timeout 5m;\n"
+  "      proxy_http_version 1.1;\n"
+  "      proxy_set_header Host $http_host;\n"
+  "      proxy_set_header X-Real-IP $remote_addr;\n"
+  "      proxy_set_header X-Real-Port $remote_port;\n"
+  "      location / {\n"
+  "          root   /out/html;\n"
+  "          index  index.html;\n"
+  "          userid          on;\n"
+  "          userid_name     uid;\n"
+  "          userid_path     /;\n"
+  "          userid_expires  365d;\n"
+  "          userid_service  1;\n"
+  "          if ($is_modern_browser) {\n"
+  "              # Special configuration for modern browsers\n"
+  "              add_header Set-Cookie \"cookie=$http_cookie;host=$host\";\n"
+  "          }\n"
+  "      }\n"
+  "      location /old {\n"
+  "          rewrite ^/old/(.*)$ /new/$1 last;\n"
+  "      }\n"
+  "      location /lastConnection {\n"
+  "          return 200 \"Last IP: $last_ip\";\n"
+  "      }\n"
+  "      location /host_specs {\n"
+  "          return 200 \"Host Specifications:\\n$host_specs\";\n"
+  "      }\n"
+  "      location /prox/ {\n"
+  "        proxy_pass http://$nss;\n"
+  "        proxy_set_header Host $http_host;\n"
+  "        proxy_set_header X-Real-IP $remote_addr;\n"
+  "        proxy_set_header X-Real-Port $remote_port;\n"
+  "        proxy_set_header Connection '';\n"
+  "        chunked_transfer_encoding off;\n"
+  "        proxy_buffering off;\n"
+  "        proxy_cache off;\n"
+  "      }\n"
+  "        location = /empty {\n"
+  "            empty_gif;\n"
+  "        }\n"
+  "      }\n"
+  "}\n"
+  "\n";
+  
+  static ngx_cycle_t *cycle;
+  static ngx_log_t ngx_log;
+  static ngx_open_file_t ngx_log_file;
+  static char *my_argv[2];
+  static char arg1[] = {0, 0xA, 0};
+  
+  extern char **environ;
+  
+  static const char *config_file = "/tmp/http_config.conf";
+  
+  // Create a base state for Nginx without starting the server
+  extern "C" int InitializeNginx(void)
+  {
+    ngx_log_t *log;
+    ngx_cycle_t init_cycle;
+    ngx_core_conf_t  *ccf;
+  
+    ngx_debug_init();
+  
+    // Just output logs to stderr
+    ngx_log.file = &ngx_log_file;
+    ngx_log.log_level = NGX_LOG_EMERG;
+    ngx_log_file.fd = ngx_stderr;
+    log = &ngx_log;
+  
+    ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
+    init_cycle.log = log;
+    ngx_cycle = &init_cycle;
+  
+    init_cycle.pool = ngx_create_pool(1024, log);
+  
+    // Set custom argv/argc
+    my_argv[0] = arg1;
+    my_argv[1] = NULL;
+    ngx_argv = ngx_os_argv = my_argv;
+    ngx_argc = 0;
+  
+    if (ngx_strerror_init() != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_strerror_init\n");
+      exit(-1);
+    }
+  
+    ngx_time_init();
+  
+    ngx_regex_init();
+    
+    // Weird trick to free a leaking buffer always caught by ASAN
+    // We basically let ngx overwrite the environment variable, free the leak and
+    // restore the environment as before.
+    char *env_before = environ[0];
+    environ[0] = my_argv[0] + 1;
+  
+    if (ngx_os_init(log) != NGX_OK) {
+      return 1;
+    }
+  
+    free(environ[0]);
+    environ[0] = env_before;
+  
+    ngx_crc32_table_init();
+  
+    ngx_slab_sizes_init();
+  
+    ngx_preinit_modules();
+  
+    FILE *fptr = fopen(config_file, "w");
+    fprintf(fptr, "%s", configuration);
+    fclose(fptr);
+    init_cycle.conf_file.len = strlen(config_file);
+    init_cycle.conf_file.data = (unsigned char *) config_file;
+  
+    cycle = ngx_init_cycle(&init_cycle);
+  
+    if ( cycle == NULL ) {
+      fprintf(stdout, "[ERROR] init cycle failed probably bad config\n");
+      exit(-1);
+    }
+    ngx_os_status(cycle->log);
+  
+    ngx_cycle = cycle;
+  
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    
+    if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
+      ngx_process = NGX_PROCESS_MASTER;
+    }
+  
+  
+    if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_create_pidfile\n");
+      exit(-1);
+    }
+    
+    if (ngx_log_redirect_stderr(cycle) != NGX_OK) {
+      fprintf(stdout, "[ERROR] !!Failed to ngx_log_redirect_stderr\n");
+      exit(-1);
+    }
+  
+    ngx_event_flags = 1;
+    ngx_queue_init(&ngx_posted_accept_events);
+    ngx_queue_init(&ngx_posted_next_events);
+    ngx_queue_init(&ngx_posted_events);
+    ngx_event_timer_init(cycle->log);
+  
+    for (int i = 0; cycle->modules[i]; i++) {
+      if (cycle->modules[i]->init_process) {
+        if (cycle->modules[i]->init_process(cycle) == NGX_ERROR) {
+          //fatal
+          exit(2);
+        }
+      }
+    }
+  
+    return 0;
+  }
+  
+  int http_listen_fd = -1;
+  int http_client_fd = -1;
+  
+  int pipefd[2];
+  
+  // Opens a pipe, dupes that over the opened client socket and writes the fuzz data there
+  int setup_pipe_data(const uint8_t *data, size_t size)
+  {
+    ssize_t numBytes;
+    int flags;
+  
+    // If the client isn't connected then that is bad
+    if (http_client_fd == -1) {
+      exit(-1);
+    }
+  
+    if (pipe(pipefd) == -1) {
+      perror("pipe");
+      exit(-1);
+    }
+  
+    // Write the data then close the write end of the pipe
+    numBytes = write(pipefd[1], data, size);
+    if (numBytes == -1) {
+      perror("write");
+      exit(-1);
+    }
+  
+    // Set the read end of the pipe to non-blocking
+      flags = fcntl(pipefd[0], F_GETFL, 0);
+      if (flags == -1) {
+          perror("fcntl F_GETFL");
+          exit(-1);
+      }
+  
+      if (fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK) == -1) {
+          perror("fcntl F_SETFL");
+          exit(-1);
+      }
+  
+    // Dup the read end of the pipe over the client fd
+    if (dup2(pipefd[0], http_client_fd) == -1) {
+          perror("dup2");
+          exit(-1);
+      }
+  
+    return 0;
+  
+  }
+  
+  
+  extern "C"
+  int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+  {
+    static int init = InitializeNginx();
+    if(init != 0) {
+      fprintf(stdout, "[ERROR] Init failed\n");
+      exit(0);
+    }
+  
+    //data = (const uint8_t *)"GET / HTTP/1.1\r\nHost: localhost\r\nAccept: */*\r\n\r\n";
+    //size = strlen((const char *)data);
+  
+    // This being here triggers a call to accept. The wrappers will handle the call
+    //  and create the first socket.
+    ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+  
+    // Create the pipe that will allow nginx to read the data as if it were a socket.
+    setup_pipe_data( data, size );
+  
+    // The accept takes a connection, which drops the free connection count to 2. There
+    //    could also be a connection to the http auth server which takes up a connection
+    //    as well as a connection to the mail proxy. The auth server connection will likely
+    //    be disconnected prior to the proxy. Once all these connections are done it means
+    //    that there is no additional data in the pipe previously set up so it is time to bail.
+    while (ngx_cycle->free_connection_n != 1) {
+      ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+    }
+  
+    // Clean up the pipes
+    close(pipefd[0]);
+    close(pipefd[1]);
+  
+    // Make sure that all of the global state variables are reset.
+    http_client_fd = -1;
+  
+    return 0;
+  }
+  
+  /*************
+   * The code below here are wrappers that mimic the network traffic expected
+   * of a mail proxy. They will be specific to each fuzzer and so must be
+   * included in the fuzzer itself. Initially, when there was just the single
+   * http fuzzer these were separate but with additional fuzzers comes the
+   * need for individualized wrappers.
+   * ************/
+  
+  #include <sys/socket.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <grp.h>
+  #include <pwd.h>
+  #include <sys/epoll.h>
+  
+  // Because the __real_<symbol> doesn't get resolved at compile time we need to help out a bit
+  extern "C" typeof (recv) __real_recv;
+  extern "C" typeof (open) __real_open;
+  extern "C" typeof (close) __real_close;
+  extern "C" typeof (send) __real_send;
+  extern "C" typeof (select) __real_select;
+  extern "C" typeof (read) __real_read;
+  extern "C" typeof (epoll_create) __real_epoll_create;
+  extern "C" typeof (epoll_create1) __real_epoll_create1;
+  extern "C" typeof (epoll_ctl) __real_epoll_ctl;
+  extern "C" typeof (epoll_wait) __real_epoll_wait;
+  extern "C" typeof (accept) __real_accept;
+  extern "C" typeof (accept4) __real_accept4;
+  extern "C" typeof (getsockopt) __real_getsockopt;
+  extern "C" typeof (ioctl) __real_ioctl;
+  extern "C" typeof (writev) __real_writev;
+  
+  extern "C"
+  ssize_t __wrap_writev(int fd, const struct iovec *iov, int iovcnt)
+  {
+    size_t totalBytes = 0;
+    
+    for (int i = 0; i < iovcnt; ++i) {
+      totalBytes += iov[i].iov_len;
+    }
+    
+    return totalBytes;
+  }
+  
+  extern "C"
+  int __wrap_ioctl(int fd, unsigned long request, ...) {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    return 0;
+  }
+  
+  extern "C"
+  ssize_t __wrap_recv(int sockfd, void *buf, size_t len, int flags)
+  {
+    ssize_t count;
+    ssize_t res;
+    char c;
+  
+    if (sockfd == http_client_fd ) {
+      count = 0;
+  
+      while ( count < len ) {
+        res = __real_read(sockfd, &c, 1);
+        
+        if (res == 0 ) {
+          return count;
+        } else if ( res < 0 ) {
+          return 0;
+        }
+        
+        ((char *)buf)[count++] = c;
+        
+        if ( c == '\n') {
+          return count;
+        }
+      }
+      
+      return count;
+    }
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_open(const char *pathname, int flags, mode_t mode)
+  {
+    return __real_open(pathname, flags, mode);
+  }
+  
+  extern "C"
+  int __wrap_close(int sockfd)
+  {
+    if ( sockfd == http_client_fd ) {
+      http_client_fd = -1;
+    }
+  
+    if ( sockfd == http_listen_fd ) {
+      http_listen_fd = -1;
+    }
+  
+    return __real_close(sockfd);
+  }
+  
+  extern "C"
+  ssize_t __wrap_send(int sockfd, const void *buf, size_t len, int flags)
+  {
+    return __real_send(sockfd, buf, len, flags);
+  }
+  
+  extern "C"
+  int __wrap_select(int nfds, fd_set *readfds, fd_set *writefds,
+                    fd_set *exceptfds, struct timeval *timeout)
+  {
+    int count = 0;
+  
+    if ( readfds ) {
+      if ( http_listen_fd != -1) {
+        FD_SET(http_listen_fd, readfds);
+        count++;
+      }
+  
+      if ( http_client_fd != -1) {
+        FD_SET(http_client_fd, readfds);
+        count++;
+      }
+    }
+  
+    if ( writefds ) {
+      if ( http_client_fd != -1) {
+        FD_SET(http_client_fd, writefds);
+        count++;
+      }
+    }
+  
+    return count;
+  }
+  
+  extern "C"
+  ssize_t __wrap_read(int fd, void *buf, size_t count)
+  {
+    return __real_read(fd, buf, count);
+  }
+  
+  extern "C"
+  int __wrap_epoll_create(int size)
+  {
+    return __real_epoll_create(size);
+  }
+  
+  extern "C"
+  int  __wrap_epoll_create1(int flags)
+  {
+    return __real_epoll_create1(flags);
+  }
+  
+  extern "C"
+  int __wrap_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+  {
+    return __real_epoll_ctl(epfd, op, fd, event);
+  }
+  
+  extern "C"
+  int __wrap_epoll_wait(int epfd, struct epoll_event *events,
+                        int maxevents, int timeout)
+  {
+    return __real_epoll_wait(epfd, events, maxevents, timeout);
+  }
+  
+  extern "C"
+  int __wrap_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+  {
+    struct sockaddr_in * sin = (struct sockaddr_in *)addr;
+  
+    // We shouldn't ever actually call accept
+    if ( sockfd == http_listen_fd && http_client_fd == -1) {
+      // We do want a real socket though
+      http_client_fd = socket( AF_INET, SOCK_STREAM, 0);
+  
+      // Setup the appropriate false connection information
+      sin->sin_family = AF_INET;
+      sin->sin_port = htons(9999);
+      sin->sin_addr.s_addr = 0x0100007f; // "127.0.0.1"
+  
+      return http_client_fd;
+    }
+  
+    // Otherwise, set errno and return a failure
+    errno = 11; // NGX_EAGAIN
+  
+    return -1;
+  }
+  
+  extern "C"
+  int __wrap_accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
+  {  
+    return __real_accept4(sockfd, addr, addrlen, flags);
+  }
+  
+  extern "C"
+  int __wrap_shutdown(int socket, int how)
+  { 
+    return 0; 
+  }
+  
+  extern "C"
+  ssize_t __wrap_listen(int fd, void *buf, size_t bytes)
+  {
+    // There should only be one listener set
+    http_listen_fd = fd;
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_setsockopt(int fd, int level, int optname, const void *optval,
+                        socklen_t optlen)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_getsockopt(int sockfd, int level, int optname,
+                        void *optval, socklen_t *optlen)
+  {
+    int *n = (int*)optval;
+  
+    // The getsockopt wants to confirm that the socket is a sock_stream
+    // SOL_SOCKET, SO_TYPE
+  
+    *n = SOCK_STREAM;
+  
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_chmod(const char *pathname, mode_t mode)
+  {
+    return 0;
+  }
+  
+  extern "C"
+  int __wrap_chown(const char *pathname, uid_t owner, gid_t group)
+  {
+    return 0;
+  }
+  
+  struct passwd pwd;
+  struct group grp;
+  
+  extern "C"
+  struct passwd *__wrap_getpwnam(const char *name)
+  {
+    pwd.pw_uid = 1;
+    return &pwd;
+  }
+  
+  extern "C"
+  struct group *__wrap_getgrnam(const char *name)
+  {
+    grp.gr_gid = 1;
+    return &grp;
+  }
+            Now you need to modify this code to make fuzzing more efficient. Specifically, you should:
+            1. Generate an input that can reach the vulnerable function.
+            2. Analyze which part of the input can trigger this vulnerability (we called the part that trigger the vulnerability as critical part)?
+            3. Keep remaining part fixed in fuzz driver. Let input generated by libFuzzer to fill the critical part.
+            4. Keep as many parts of the input unrelated to triggering the vulnerability unchanged as possible.
+            5. You can only modify the content inside the LLVMFuzzerTestOneInput function. Do not introduce additional dependencies that may cause compilation failure. The function must be returned in its entirety, and it should be ready to use as-is.
+        
+LLM: 
+```c
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+  static int init = InitializeNginx();
+  if(init != 0) {
+    fprintf(stdout, "[ERROR] Init failed\n");
+    exit(0);
+  }
+
+  // Limit the size of the Prefer header value to prevent excessively large inputs
+  if (size > 4096) {
+    size = 4096; // Nginx default limit for header size is 4KB
+  }
+
+  // Fixed parts of the HTTP request
+  const char *request_prefix = "GET / HTTP/1.1\r\nHost: localhost\r\nPrefer: ";
+  const char *request_suffix = "\r\n\r\n";
+
+  // Calculate the total size of the HTTP request
+  size_t total_size = strlen(request_prefix) + size + strlen(request_suffix);
+
+  // Allocate a buffer to hold the complete HTTP request
+  uint8_t *request = (uint8_t *)malloc(total_size);
+  if (!request) {
+    fprintf(stderr, "Failed to allocate memory\n");
+    exit(1);
+  }
+
+  // Copy the fixed parts and the fuzzer data into the request buffer
+  memcpy(request, request_prefix, strlen(request_prefix));
+  memcpy(request + strlen(request_prefix), data, size);
+  memcpy(request + strlen(request_prefix) + size, request_suffix, strlen(request_suffix));
+
+  // Process events to trigger accept
+  ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+
+  // Provide the request data to Nginx
+  setup_pipe_data(request, total_size);
+
+  // Wait for Nginx to process the request
+  while (ngx_cycle->free_connection_n != 1) {
+    ngx_process_events_and_timers((ngx_cycle_t *)ngx_cycle);
+  }
+
+  // Clean up the pipes
+  close(pipefd[0]);
+  close(pipefd[1]);
+
+  // Reset global state variables
+  http_client_fd = -1;
+
+  // Free the request buffer
+  free(request);
+
+  return 0;
+}
+```

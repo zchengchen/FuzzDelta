@@ -3,16 +3,13 @@ from models.gpto1_chain import *
 from tools.common import *
 from tools.chat import *
 import os
-import subprocess
-import textwrap
-import json
 
 gpto1 = GPTo1Chain()
 prompt_gen = PromptGenerator()
 
 vuln_list = {
     # "cpv1": "d030af5eb4c64470c8fd5a87a8f6aae547580aa3",
-    "cpv2": "0dbd46415432759475e6e4bb5adfaada6fb7d506",
+    # "cpv2": "0dbd46415432759475e6e4bb5adfaada6fb7d506",
     # "cpv3": "c502a1695c0e9d0345101a5f2a99ee0e3c890a4d",
     # "cpv4": "b9d6a2caf41565fb05c010ad0c8d2fd6bd3c4c42",
     # "cpv5": "b101d59b3dda654dee1deabc34816e2ca7c96d38",
@@ -24,7 +21,7 @@ vuln_list = {
     # "cpv13": "316d57f895c4c915c5ce3af8b09972d47dd9984e",
     # "cpv14": "9c5e32dcd9779c4cfe48c5377d0af8adc52a2be9",
     # "cpv15": "ef970a54395324307fffd11ab37266479ac37d4c",
-    # "cpv17": "b6c0a37554e300aa230ea2b8d7fe53dd8604f602"
+    "cpv17": "b6c0a37554e300aa230ea2b8d7fe53dd8604f602"
 }
 commits_info_path = "/home/zhicheng/FuzzDelta/experiments/aixcc_nginx/commits.json"
 fuzz_drivers_path = "/home/zhicheng/FuzzDelta/experiments/aixcc_nginx/src/harnesses/"
@@ -56,7 +53,7 @@ for cpv_name, commit_hash in vuln_list.items():
         chat_history = update_chat_history("LLM", selected_driver, chat_history)
         print("[*] Fuzz driver selection finished.")
         fuzz_driver = get_file_content(os.path.join(fuzz_drivers_path, selected_driver))
-        request_modified_driver_prompt = prompt_gen.request_modified_harness_template(llm_analysis, fuzz_driver)
+        request_modified_driver_prompt = prompt_gen.request_modified_harness_template(commit_diff, llm_analysis, fuzz_driver)
         response = gpto1.invoke(request_modified_driver_prompt)
         chat_history = update_chat_history("Human", request_modified_driver_prompt, chat_history)
         chat_history = update_chat_history("LLM", response, chat_history)
